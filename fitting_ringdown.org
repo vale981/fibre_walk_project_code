@@ -1,0 +1,4 @@
+:PROPERTIES:
+:ID:       d7630955-6ca9-4de7-9770-2d50d4847bcd
+:END:
+#+title: Fitting Ringdown
