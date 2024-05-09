@@ -11,6 +11,4 @@ path = (
 )
 scan = ScanData.from_dir(path, truncation=[0, 50])
 
-fig, ax = plot_scan(scan, steps=True, smoothe_output=1000)
-
-plt.savefig("../figures/non_steady.png")
+fig, ax = plot_scan(scan, smoothe_output=10, steps=1)

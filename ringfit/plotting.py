@@ -61,37 +61,45 @@ def plot_scan(
     data: data.ScanData,
     laser=False,
     output=True,
-    steps=False,
+    steps: bool | int = False,
     normalize=False,
-    smoothe_output=False,
+    smoothe_output: bool | int = False,
     ax=None,
     **kwargs,
 ):
     if not (laser or output):
         raise ValueError("At least one of 'laser' or 'output' must be True.")
 
-    if laser:
-        laser = data.laser
-        if normalize:
-            laser = (laser - laser.min()) / (laser.max() - laser.min())
+    time, output_data, laser_data = (
+        (data.time, data.output, data.laser)
+        if isinstance(steps, bool)
+        else data.for_step(steps)
+    )
 
-        lines = ax.plot(data.time, laser, **kwargs)
+    if laser:
+        if normalize:
+            laser_data = (laser_data - laser_data.min()) / (
+                laser_data.max() - laser_data.min()
+            )
+
+        lines = ax.plot(time, laser_data, **kwargs)
 
     if output:
-        output = data.output
         if normalize:
-            output = (output - output.min()) / (output.max() - output.min())
+            output_data = (output_data - output_data.min()) / (
+                output_data.max() - output_data.min()
+            )
 
         if smoothe_output:
             if not isinstance(smoothe_output, int):
-                smoothe_output = 60
+                smoothe_output_data = 60
 
-            window = len(output) // smoothe_output
-            output = uniform_filter1d(output, window)
+            window = len(output_data) // smoothe_output
+            output_data = uniform_filter1d(output_data, window)
 
-        lines = ax.plot(data.time, output, **kwargs)
+        lines = ax.plot(time, output_data, **kwargs)
 
-    if steps:
+    if isinstance(steps, bool) and steps:
         peaks = data.laser_steps()
         for peak in peaks:
             ax.axvline(

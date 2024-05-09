@@ -80,7 +80,7 @@ class ScanData:
         return self._time
 
     @functools.cache
-    def laser_steps(self, *args, **kwargs):
+    def laser_steps(self, *args, **kwargs) -> np.ndarray:
         """Find the indices of the laser signal ``laser`` where the
         frequency of the laser changes.  For the parameters, see
         :func:`utils.find_frequency_steps`.
@@ -100,7 +100,9 @@ class ScanData:
         return self._time[self.laser_steps()]
 
     @functools.cache
-    def output_end_averages(self, end_fraction: float = 0.1, *args, **kwargs):
+    def output_end_averages(
+        self, end_fraction: float = 0.1, steps: np.ndarray | None = None
+    ) -> np.ndarray:
         """
         The average output intensity at the end of each laser
         frequency modulation step.  **If** the system is in its
@@ -108,7 +110,9 @@ class ScanData:
         transmission at that frequency.
         """
 
-        steps = self.laser_steps()
+        if steps is None:
+            steps = self.laser_steps()
+
         step_size = np.mean(np.diff(steps))
 
         if end_fraction > 1:
@@ -117,3 +121,20 @@ class ScanData:
         window = int(step_size * end_fraction)
 
         return np.array([self._output[step - window : step].mean() for step in steps])
+
+    def for_step(self, step: int, steps: np.ndarray | None = None):
+        """Return time and output for the ``step``.  If ``steps`` is
+        not provided, then they are retrieved using the default
+        settings.  See :any:`laser_steps`.
+        """
+        time_steps: np.ndarray = self.laser_steps() if steps is None else steps
+
+        if step < 0 or step >= len(time_steps):
+            raise ValueError("The step must be between 0 and the number of steps.")
+
+        padded_steps = [0, *time_steps, len(self._output) - 1]
+        return (
+            self._time[padded_steps[step] : padded_steps[step + 1]],
+            self._output[padded_steps[step] : padded_steps[step + 1]],
+            self._laser[padded_steps[step] : padded_steps[step + 1]],
+        )

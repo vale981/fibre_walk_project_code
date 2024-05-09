@@ -1,2 +1,9 @@
 %matplotlib tk
 plt.ion()
+
+import sys
+sys.path.append("../")
+import matplotlib.pyplot as plt
+from ringfit.data import *
+from ringfit.utils import *
+from ringfit.plotting import *
