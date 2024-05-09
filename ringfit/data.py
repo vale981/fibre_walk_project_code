@@ -9,7 +9,14 @@ from . import utils
 
 
 class ScanData:
-    def __init__(self, laser: np.ndarray, output: np.ndarray, time: np.ndarray):
+    def __init__(
+        self,
+        laser: np.ndarray,
+        output: np.ndarray,
+        time: np.ndarray,
+        truncation: [float, float] = [0, 100],
+        sparcity: float = 1,
+    ):
         """
         A class to hold the data from an oscilloscope scan where the
         laser frequency is stepped as per the modulation ``laser``.
@@ -19,11 +26,40 @@ class ScanData:
         :param laser: The laser modulation signal.
         :param output: The output intensity signal.
         :param time: The time axis for the signals.
+        :param truncation: The fraction of the signals to truncate
+            from the beginning and end.
+        :param sparcity: The fraction of the signals to keep.
         """
 
-        self._laser = laser
-        self._output = output
-        self._time = time
+        if len(laser) != len(output) or len(laser) != len(time):
+            raise ValueError("The signals must all be the same length.")
+
+        length = len(laser)
+        begin = int(truncation[0] * length / 100)
+        end = int(truncation[1] * length / 100)
+
+        every = int(1 / sparcity)
+
+        self._laser = laser[begin:end:every]
+        self._output = output[begin:end:every]
+        self._time = time[begin:end:every]
+
+    @classmethod
+    def from_dir(cls, directory: str | Path, **kwargs):
+        """Load and parse the oscilloscope data from the
+        ``directory``.  The ``**kwargs`` are passed to the
+        constructor.
+
+        The directory should contain ``signal_laser.npy``,
+        ``signal_outp.npy``, and ``time.npy``.
+        """
+
+        directory = Path(directory)
+        laser = np.load(directory / "signal_laser.npy")
+        output = np.load(directory / "signal_outp.npy")
+        time = np.load(directory / "time.npy")
+
+        return cls(laser, output, time, **kwargs)
 
     @property
     def laser(self):
@@ -81,17 +117,3 @@ class ScanData:
         window = int(step_size * end_fraction)
 
         return np.array([self._output[step - window : step].mean() for step in steps])
-
-
-def load_scan(directory: str | Path):
-    """Load and parse the oscilloscope data from the ``directory``.
-
-    The directory should contain ``signal_laser.npy``, ``signal_outp.npy``, and ``time.npy``.
-    """
-
-    directory = Path(directory)
-    laser = np.load(directory / "signal_laser.npy")
-    output = np.load(directory / "signal_outp.npy")
-    time = np.load(directory / "time.npy")
-
-    return ScanData(laser, output, time)

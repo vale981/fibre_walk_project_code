@@ -1,7 +1,7 @@
 from . import data
 import matplotlib.pyplot as plt
 from scipy.ndimage import uniform_filter1d
-from scipy.interpolate import make_interp_spline, BSpline
+from scipy.interpolate import make_interp_spline
 import numpy as np
 
 

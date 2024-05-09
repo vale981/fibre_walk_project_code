@@ -2,3 +2,9 @@
 :ID:       d7630955-6ca9-4de7-9770-2d50d4847bcd
 :END:
 #+title: Fitting Ringdown
+
+* Failure of the steady state
+
+On the right peak on can see that there might be something fish going
+on. This is ~data/24_05_24/nice_transient2~.
+[[file:figures/non_steady.png]]
