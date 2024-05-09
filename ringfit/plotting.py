@@ -92,7 +92,7 @@ def plot_scan(
 
         if smoothe_output:
             if not isinstance(smoothe_output, int):
-                smoothe_output_data = 60
+                smoothe_output = 60
 
             window = len(output_data) // smoothe_output
             output_data = uniform_filter1d(output_data, window)
@@ -101,12 +101,24 @@ def plot_scan(
 
     if isinstance(steps, bool) and steps:
         peaks = data.laser_steps()
-        for peak in peaks:
+        peaks = [0, *peaks, len(data.time) - 1]
+
+        vertical = output_data.min()
+        for peak in peaks[1:-1]:
             ax.axvline(
                 data.time[peak],
                 color=lighten_color(lines[0].get_color()),
                 linestyle="--",
                 zorder=-10,
+            )
+
+        for i, (begin, end) in enumerate(zip(peaks[:-1], peaks[1:])):
+            ax.text(
+                (data.time[begin] + data.time[end]) / 2,
+                vertical,
+                f"{i}",
+                ha="center",
+                va="bottom",
             )
 
 

@@ -31,3 +31,15 @@ def find_frequency_steps(laser: np.ndarray, window_fraction: int = 60) -> np.nda
 
     peaks = find_peaks(step_diffs, height=0.5, distance=window)[0]
     return peaks
+
+
+def shift_and_normalize(array: np.ndarray) -> np.ndarray:
+    shifted = array - array.min()
+    return shifted / abs(shifted).max()
+
+
+def smoothe_signal(signal: np.ndarray, window_size: float = 0.01) -> np.ndarray:
+    """Smoothe the signal ``signal`` using a uniform filter with a window
+    size of ``window_size * len(signal)``."""
+    window = int(len(signal) * window_size)
+    return uniform_filter1d(signal, window)
