@@ -13,8 +13,8 @@ matplotlib = "^3.8.4"
 
 
 [tool.poetry.group.dev.dependencies]
+ptpython = "^3.0.26"
 ipython = "^8.24.0"
-jupyter = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]
