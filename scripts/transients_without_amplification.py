@@ -13,7 +13,7 @@ path = (
 scan = ScanData.from_dir(path, truncation=[0, 50])
 
 STEPS = [2, 3, 5]
-fig, ax = plot_scan(scan, smoothe_output=50, normalize=True, laser=False, steps=True)
+fig, ax = plot_scan(scan, smoothe_output=500, normalize=True, laser=True, steps=True)
 
 for STEP in STEPS:
     time, output, _ = scan.for_step(step=STEP)
