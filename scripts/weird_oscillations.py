@@ -8,14 +8,20 @@ from ringfit.plotting import *
 from ringfit.fit import *
 from ringfit.utils import *
 
+# %% Load Data
+
 path = "/home/hiro/Documents/org/roam/code/fitting_ringdown/data/09_05_24/Nicely_hybridised_2 2024,05,09, 15h57min00sec/"
 scan = ScanData.from_dir(path, truncation=[0, 50])
 STEPS = [2, 33, 12]
+
+# %% Set Up Figures
 fig, (ax1, *axs) = plt.subplots(nrows=1, ncols=len(STEPS) + 1)
 
+# %% Plot scan
 plot_scan(scan, smoothe_output=100, normalize=True, laser=False, steps=True, ax=ax1)
 
 
+# %% Plot Frequency Fits
 def fit_frequency(step, ax):
     time, output, _ = scan.for_step(step)
     l = len(time)
