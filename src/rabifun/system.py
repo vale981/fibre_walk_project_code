@@ -120,7 +120,6 @@ def solve(t: np.ndarray, params: Params):
         (np.min(t), np.max(t)),
         initial,
         vectorized=False,
-        max_step=0.01 * 2 * np.pi / np.max(abs(runtime.Ωs.real)),
         t_eval=t,
     )
 
