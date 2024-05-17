@@ -8,6 +8,17 @@ import numpy as np
 def plot_simulation_result(
     t: np.ndarray, signal: np.ndarray, params: Params, window=None
 ):
+    """Plot the simulation result. The signal is plotted in the first axis
+    and the Fourier transform is plotted in the second axis.
+
+    :param t: time axis
+    :param signal: output signal
+    :param params: system parameters
+    :param window: time window for the Fourier transform
+
+    :returns: figure and axes
+    """
+
     f, (ax1, ax2) = plt.subplots(2, 1)
 
     ax1.plot(t, signal)
@@ -36,6 +47,11 @@ def plot_simulation_result(
 
 
 def plot_sidebands(ax, params: Params):
+    """Visualize the frequency of the sidebands.
+
+    :param ax: axis to plot on
+    :param params: system parameters
+    """
     energy = params.rabi_splitting
     sidebands = (
         params.Ω - params.laser_detuning + np.array([1, -1]) * energy / 2 - params.Δ / 2
