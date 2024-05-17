@@ -24,7 +24,11 @@ class Params:
     laser_detuning: float = 0.0
     """Detuning of the laser."""
 
-    laser_amplitude: float = 0.001
+    laser_off_time: float | None = None
+    """Time at which the laser is turned off."""
+
+    drive_off_time: float | None = None
+    """Time at which the drive is turned off."""
 
     def periods(self, n: float):
         return n * 2 * np.pi / self.Ω
@@ -51,9 +55,15 @@ def drive(t, x, d, Δ, Ω):
 
 def make_righthand_side(Ωs, params: Params):
     def rhs(t, x):
-        return -1j * (
-            Ωs * x + drive(t, x, params.d, params.Δ, params.Ω)
-        ) + params.laser_amplitude * np.exp(-1j * params.laser_detuning * t)
+        differential = Ωs * x
+
+        if (params.drive_off_time is None) or (t < params.drive_off_time):
+            differential += drive(t, x, params.d, params.Δ, params.Ω)
+
+        if (params.laser_off_time is None) or (t < params.laser_off_time):
+            differential += np.exp(-1j * params.laser_detuning * t)
+
+        return -1j * differential
 
     return rhs
 
@@ -96,16 +106,19 @@ f, (ax1, ax2) = plt.subplots(2, 1)
 
 
 def transient_analysis():
-    params = Params(η=0.001, d=0.1, laser_detuning=0.2, Δ=0.1, laser_amplitude=0.01)
-    t = np.arange(0, params.lifetimes(10), 2 / (params.Ω * params.N))
+    params = Params(η=0.001, d=0.1, laser_detuning=0, Δ=0.05)
+    params.laser_off_time = params.lifetimes(2)
+    params.drive_off_time = params.lifetimes(2)
+    t = np.arange(0, params.lifetimes(5), 0.5 / (params.Ω * params.N))
     solution = solve(t, params)
 
     signal = output_signal(t, solution.y, params.laser_detuning)
     # signal += np.random.normal(0, .1 * np.max(abs(signal)), len(signal))
 
-    late = t > params.lifetimes(0)
-    t = t[late]
-    signal = signal[late]
+    window = (params.lifetimes(2) > t) & (t > params.lifetimes(0))
+    # window = t > params.lifetimes(2)
+    t = t[window]
+    signal = signal[window]
 
     ax1.clear()
     # ax1.plot(
