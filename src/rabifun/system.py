@@ -40,7 +40,7 @@ class Params:
 
     @property
     def rabi_splitting(self):
-        return 1 / 2 * np.sqrt(4 * self.d**2 + 4 * self.Δ**2)
+        return np.sqrt(self.d**2 + self.Δ**2)
 
 
 class RuntimeParams:

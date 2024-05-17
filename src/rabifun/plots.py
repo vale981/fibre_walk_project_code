@@ -53,17 +53,26 @@ def plot_sidebands(ax, params: Params):
     :param params: system parameters
     """
     energy = params.rabi_splitting
-    sidebands = (
+
+    first_sidebands = np.abs(
+        -params.laser_detuning + np.array([1, -1]) * energy / 2 - params.Δ / 2
+    )
+    second_sidebands = (
         params.Ω - params.laser_detuning + np.array([1, -1]) * energy / 2 - params.Δ / 2
     )
 
     ax.axvline(params.Ω - params.Δ, color="black", label="steady state")
 
-    for n, sideband in enumerate(sidebands):
+    for n, sideband in enumerate(first_sidebands):
         ax.axvline(
             sideband,
-            color=f"C{n}",
-            label=f"rabi-sideband {n}",
+            color=f"C1",
+        )
+
+    for n, sideband in enumerate(second_sidebands):
+        ax.axvline(
+            sideband,
+            color=f"C2",
         )
 
     ax.legend()
