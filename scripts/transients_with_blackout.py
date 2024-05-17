@@ -1,6 +1,5 @@
 import sys
 
-sys.path.append("../")
 from ringfit import data
 import matplotlib.pyplot as plt
 from ringfit.data import *

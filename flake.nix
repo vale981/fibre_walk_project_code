@@ -45,6 +45,10 @@
             pyright
             python3Packages.jupyter
           ];
+
+          shellHook = ''
+          export PYTHONPATH=$(pwd)/src:$PYTHONPATH
+          '';
         };
 
         # Shell for poetry.
