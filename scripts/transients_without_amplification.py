@@ -11,19 +11,21 @@ path = (
 )
 scan = ScanData.from_dir(path, truncation=[0, 50])
 
+# %% interactive
 STEPS = [2, 3, 5]
-fig, ax = plot_scan(scan, smoothe_output=500, normalize=True, laser=True, steps=True)
+fig = plt.figure("interactive")
+ax, *axs = fig.subplots(1, len(STEPS))
+plot_scan(scan, smoothe_output=500, normalize=True, laser=True, steps=True, ax=ax)
 
-for STEP in STEPS:
+for ax, STEP in zip(axs, STEPS):
     time, output, _ = scan.for_step(step=STEP)
     t, o, params, cov, scaled = fit_transient(time, output, window_size=100)
 
-    plt.figure()
-    plt.plot(t, o)
-    plt.plot(t, transient_model(t, *params))
-    plt.title(
+    ax.plot(t, o)
+    ax.plot(t, transient_model(t, *params))
+    ax.set_title(
         f"Transient 2, γ={scaled[1] / 10**3:.2f}kHz ({cov[1] / 10**3:.2f}kHz)\n ω/2π={scaled[0] / (2*np.pi * 10**3):.5f}kHz\n step={STEP}"
     )
 
     freq_unit = params[1] / scaled[1]
-    plt.plot(t, np.sin(2 * np.pi * 4 * 10**4 * t * freq_unit), alpha=0.1)
+    ax.plot(t, np.sin(2 * np.pi * 4 * 10**4 * t * freq_unit), alpha=0.1)

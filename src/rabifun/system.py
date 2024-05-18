@@ -23,6 +23,9 @@ class Params:
     Δ: float = 0.0
     """Detuning of the EOM drive."""
 
+    δ: float = 1 / 4
+    """Mode splitting."""
+
     laser_detuning: float = 0.0
     """Detuning of the laser relative to the _A_ mode."""
 
@@ -31,6 +34,9 @@ class Params:
 
     drive_off_time: float | None = None
     """Time at which the drive is turned off."""
+
+    rwa: bool = False
+    """Whether to use the rotating wave approximation."""
 
     def periods(self, n: float):
         return n * 2 * np.pi / self.Ω
@@ -42,12 +48,19 @@ class Params:
     def rabi_splitting(self):
         return np.sqrt(self.d**2 + self.Δ**2)
 
+    @property
+    def ω_eom(self):
+        return self.Ω - self.δ - self.Δ
+
 
 class RuntimeParams:
     """Secondary Parameters that are required to run the simulation."""
 
     def __init__(self, params: Params):
-        self.Ωs = np.arange(0, params.N) * params.Ω - 1j * np.repeat(params.η, params.N)
+        Ωs = np.arange(0, params.N) * params.Ω - 1j * np.repeat(params.η, params.N)
+        Ωs[1:] -= params.δ
+
+        self.Ωs = Ωs
 
 
 def time_axis(params: Params, lifetimes: float, resolution: float = 1):
@@ -67,21 +80,23 @@ def time_axis(params: Params, lifetimes: float, resolution: float = 1):
     )
 
 
-def eom_drive(t, x, d, Δ, Ω):
+def eom_drive(t, x, d, ω, rwa):
     """The electrooptical modulation drive.
 
     :param t: time
     :param x: amplitudes
     :param d: drive amplitude
-    :param Δ: detuning
-    :param Ω: FSR
+    :param ω: drive frequency
+    :param rwa: whether to use the rotating wave approximation
     """
+
     stacked = np.repeat([x], len(x), 0)
 
-    np.fill_diagonal(stacked, 0)
-
     stacked = np.sum(stacked, axis=1)
-    driven_x = d * np.sin((Ω - Δ) * t) * stacked
+    driven_x = d * np.sin(ω * t) * stacked
+
+    if rwa and len(x) > 2:
+        driven_x[2:] = 0
 
     return driven_x
 
@@ -93,10 +108,12 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
         differential = runtime_params.Ωs * x
 
         if (params.drive_off_time is None) or (t < params.drive_off_time):
-            differential += eom_drive(t, x, params.d, params.Δ, params.Ω)
+            differential += eom_drive(t, x, params.d, params.ω_eom, params.rwa)
 
         if (params.laser_off_time is None) or (t < params.laser_off_time):
-            differential += np.exp(-1j * params.laser_detuning * t)
+            laser = np.exp(-1j * params.laser_detuning * t)
+            differential[0] += laser / np.sqrt(2)
+            differential[1:] += laser
 
         return -1j * differential
 
@@ -120,6 +137,7 @@ def solve(t: np.ndarray, params: Params):
         (np.min(t), np.max(t)),
         initial,
         vectorized=False,
+        # max_step=0.1 * np.pi / (params.Ω * params.N),
         t_eval=t,
     )
 

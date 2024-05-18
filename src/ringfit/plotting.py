@@ -25,7 +25,6 @@ def fancy_error(x, y, err, ax, **kwargs):
     return line, err
 
 
-@wrap_plot
 def plot_scan(
     data: data.ScanData,
     laser=False,

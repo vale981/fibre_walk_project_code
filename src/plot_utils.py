@@ -1,14 +1,37 @@
 import matplotlib.pyplot as plt
+from typing import Callable, Any
+from functools import wraps
+from typing_extensions import ParamSpec, TypeVar, Concatenate
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def wrap_plot(f):
-    def wrapped(*args, ax=None, setup_function=plt.subplots, **kwargs):
-        fig = None
-        if not ax:
-            fig, ax = setup_function()
+def make_figure(fig_name: str = "interactive", *args, **kwargs):
+    fig = plt.figure(fig_name, *args, **kwargs)
+    fig.clf()
+    return fig
 
-        ret_val = f(*args, ax=ax, **kwargs)
-        return (fig, ax, ret_val) if ret_val else (fig, ax)
+
+def wrap_plot(
+    plot_function: Callable[Concatenate[plt.Figure | None, P], R],  # pyright: ignore [reportPrivateImportUsage]
+) -> Callable[Concatenate[plt.Figure | None, P], tuple[plt.Figure, R]]:  # pyright: ignore [reportPrivateImportUsage]
+    """Decorator to wrap a plot function to inject the correct figure
+    for interactive use.  The function that this decorator wraps
+    should accept the figure as first argument.
+
+    :param fig_name: Name of the figure to create.  By default it is
+        "interactive", so that one plot window will be reused.
+    :param setup_function: Function that returns a figure to use.  If
+        it is provided, the ``fig_name`` will be ignored.
+    """
+
+    def wrapped(fig, *args: P.args, **kwargs: P.kwargs):
+        if fig is None:
+            fig = make_figure()
+
+        ret_val = plot_function(fig, *args, **kwargs)
+        return (fig, ret_val)
 
     return wrapped
 

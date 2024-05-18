@@ -14,7 +14,9 @@ scan = ScanData.from_dir(path, truncation=[0, 50])
 STEPS = [2, 33, 12]
 
 # %% Set Up Figures
-fig, (ax1, *axs) = plt.subplots(nrows=1, ncols=len(STEPS) + 1)
+fig = plt.figure("interactive")
+fig.clf()
+(ax1, *axs) = fig.subplots(nrows=1, ncols=len(STEPS) + 1)
 
 # %% Plot scan
 plot_scan(scan, smoothe_output=100, normalize=True, laser=False, steps=True, ax=ax1)

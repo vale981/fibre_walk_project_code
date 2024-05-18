@@ -5,8 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+@wrap_plot
 def plot_simulation_result(
-    t: np.ndarray, signal: np.ndarray, params: Params, window=None
+    fig,
+    t: np.ndarray,
+    signal: np.ndarray,
+    params: Params,
+    window=None,
 ):
     """Plot the simulation result. The signal is plotted in the first axis
     and the Fourier transform is plotted in the second axis.
@@ -19,7 +24,7 @@ def plot_simulation_result(
     :returns: figure and axes
     """
 
-    f, (ax1, ax2) = plt.subplots(2, 1)
+    (ax1, ax2) = fig.subplots(2, 1)
 
     ax1.plot(t, signal)
     ax1.set_title(f"Output signal\n {params}")
@@ -43,7 +48,7 @@ def plot_simulation_result(
     ax3.plot(freq, np.angle(fft), linestyle="--", color="C2", alpha=0.5, zorder=-10)
     ax3.set_ylabel("Phase")
 
-    return f, (ax1, ax2)
+    return (ax1, ax2)
 
 
 def plot_sidebands(ax, params: Params):
@@ -55,13 +60,17 @@ def plot_sidebands(ax, params: Params):
     energy = params.rabi_splitting
 
     first_sidebands = np.abs(
-        -params.laser_detuning + np.array([1, -1]) * energy / 2 - params.Δ / 2
+        -params.laser_detuning + np.array([1, -1]) * energy / 2 + params.Δ / 2
     )
     second_sidebands = (
-        params.Ω - params.laser_detuning + np.array([1, -1]) * energy / 2 - params.Δ / 2
+        params.Ω
+        - params.δ
+        - params.laser_detuning
+        + np.array([1, -1]) * energy / 2
+        - params.Δ / 2
     )
 
-    ax.axvline(params.Ω - params.Δ, color="black", label="steady state")
+    ax.axvline(params.ω_eom, color="black", label="steady state")
 
     for n, sideband in enumerate(first_sidebands):
         ax.axvline(
