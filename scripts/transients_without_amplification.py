@@ -1,12 +1,10 @@
-import sys
-
 from ringfit import data
 import matplotlib.pyplot as plt
 from ringfit.data import *
 from ringfit.plotting import *
 from ringfit.fit import *
 
-path = "/home/hiro/Documents/org/roam/code/fitting_ringdown/data/08_05_24/characterization_first"
+path = "../data/08_05_24/characterization_first"
 scan = ScanData.from_dir(path)
 
 # %% interactive
