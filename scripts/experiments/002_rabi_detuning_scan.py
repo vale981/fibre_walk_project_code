@@ -9,7 +9,7 @@ from plot_utils import wrap_plot
 def transient_rabi():
     """A transient rabi oscillation without noise."""
 
-    params = Params(η=0.0001, δ=1 / 4, d=0.1, laser_detuning=0.01, Δ=0.005, N=2)
+    params = Params(η=0.0001, δ=1 / 4, d=0.1, laser_detuning=0.1, Δ=0.005, N=2)
     t = time_axis(params, 3, 0.1)
     solution = solve(t, params)
     signal = output_signal(t, solution.y, params.laser_detuning)
@@ -59,8 +59,7 @@ def ringdown_after_rabi():
     """Demonstrates the nonstationary ringdown of the resonator after turning off the EOM and laser drive."""
     off_lifetime = 4
     laser_detuning = 0.1
-
-    params = Params(η=0.0001, d=0.01, laser_detuning=laser_detuning, Δ=0.00, N=4)
+    params = Params(η=0.0001, d=0.01, laser_detuning=laser_detuning, Δ=0.00, N=2)
 
     params.laser_off_time = params.lifetimes(off_lifetime)
     params.drive_off_time = params.lifetimes(off_lifetime)
