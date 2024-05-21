@@ -19,7 +19,7 @@ fig.clf()
 (ax1, *axs) = fig.subplots(nrows=1, ncols=len(STEPS) + 1)
 
 # %% Plot scan
-plot_scan(scan, smoothe_output=100, normalize=True, laser=False, steps=True, ax=ax1)
+plot_scan(scan, smoothe_output=50**2, normalize=True, laser=False, steps=True, ax=ax1)
 
 
 # %% Plot Frequency Fits
@@ -30,7 +30,7 @@ def fit_frequency(step, ax):
     end = int(0.8 * l)
     time = time[begin:end]
     output = output[begin:end]
-    output = smoothe_signal(output, 0.05)
+    output = smoothe_signal(output, 50**2)
     output = shift_and_normalize(output)
     output -= output.mean()
 

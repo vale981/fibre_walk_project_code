@@ -6,6 +6,7 @@ import numpy as np
 from pathlib import Path
 import functools
 from . import utils
+import gc
 
 
 class ScanData:
@@ -14,8 +15,8 @@ class ScanData:
         laser: np.ndarray,
         output: np.ndarray,
         time: np.ndarray,
-        truncation: [float, float] = [0, 100],
-        sparcity: float = 1,
+        truncation: tuple[float, float] = (0.0, 100.0),
+        max_frequency: float = np.inf,
     ):
         """
         A class to hold the data from an oscilloscope scan where the
@@ -36,13 +37,23 @@ class ScanData:
 
         length = len(laser)
         begin = int(truncation[0] * length / 100)
-        end = int(truncation[1] * length / 100)
+        end = int(truncation[1] * length / 100) + 1
 
-        every = int(1 / sparcity)
+        self._laser = laser[begin:end]
+        self._output = output[begin:end]
+        self._time = time[begin:end]
 
-        self._laser = laser[begin:end:every]
-        self._output = output[begin:end:every]
-        self._time = time[begin:end:every]
+        step = time[2] - time[1]
+
+        if 1 / step > max_frequency:
+            new_step = 1 / max_frequency
+            index_step = int(new_step / step)
+
+            self._laser = self._laser[::index_step]
+            self._output = self._output[::index_step]
+            self._time = self._time[::index_step]
+
+        gc.collect()
 
     @classmethod
     def from_dir(cls, directory: str | Path, **kwargs):
@@ -78,6 +89,38 @@ class ScanData:
         """The time axis for the signals."""
 
         return self._time
+
+    @property
+    def timestep(self):
+        """The time between each sample."""
+
+        return self._time[2] - self._time[1]
+
+    def __len__(self):
+        """The number of samples in the data."""
+        return len(self._laser)
+
+    def smoothed(self, window: float):
+        """
+        Return a smoothed version of the data where the signals are
+        smoothened using a window of size ``window`` (in time units).
+        """
+
+        step = self.timestep
+        return ScanData(
+            self._laser,
+            utils.smoothe_signal(self._output.copy(), window, step),
+            self._time,
+        )
+
+    def sparsified(self, max_frequency: float):
+        """Return a sparsified version of the data where the frequency
+        is limited to ``max_frequency``.
+        """
+
+        return ScanData(
+            self._laser, self._output, self._time, max_frequency=max_frequency
+        )
 
     @functools.cache
     def laser_steps(self, *args, **kwargs) -> np.ndarray:
@@ -133,8 +176,9 @@ class ScanData:
             raise ValueError("The step must be between 0 and the number of steps.")
 
         padded_steps = [0, *time_steps, len(self._output) - 1]
-        return (
-            self._time[padded_steps[step] : padded_steps[step + 1]],
-            self._output[padded_steps[step] : padded_steps[step + 1]],
+
+        return ScanData(
             self._laser[padded_steps[step] : padded_steps[step + 1]],
+            self._output[padded_steps[step] : padded_steps[step + 1]],
+            self._time[padded_steps[step] : padded_steps[step + 1]],
         )

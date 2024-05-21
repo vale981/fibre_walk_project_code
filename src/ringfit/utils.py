@@ -38,8 +38,11 @@ def shift_and_normalize(array: np.ndarray) -> np.ndarray:
     return shifted / abs(shifted).max()
 
 
-def smoothe_signal(signal: np.ndarray, window_size: float = 0.01) -> np.ndarray:
+def smoothe_signal(
+    signal: np.ndarray, window_size: float = 0.01, time_step: float = 1
+) -> np.ndarray:
     """Smoothe the signal ``signal`` using a uniform filter with a window
-    size of ``window_size * len(signal)``."""
-    window = int(len(signal) * window_size)
+    size of ``window_size / time_step``."""
+
+    window = int(window_size / time_step)
     return uniform_filter1d(signal, window)

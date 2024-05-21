@@ -15,24 +15,13 @@ def transient_model(t, Δω, γ, amplitude, phase):
     return np.imag(osci)
 
 
-def fit_transient(time: np.ndarray, transient: np.ndarray, window_size: int = 100):
+def fit_transient(time: np.ndarray, transient: np.ndarray):
     """
     Fit a transient signal ``transient`` over ``time`` to a damped
     oscillation model.
-
-    The smoothing window is calculated as the length of the transient
-    divided by the ``window_size``.
     """
 
-    # data_length = len(transient)
-    # begin, end = transient.argmax(), -int(data_length * 0.01)
-
-    # time = time[begin:end]
-    # output_data = transient[begin:end]
-
     output_data = transient
-    window = len(output_data) // window_size
-    output_data = uniform_filter1d(output_data, window)
     output_data -= output_data[0]
     output_data /= abs(output_data).max()
 

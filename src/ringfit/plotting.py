@@ -31,12 +31,18 @@ def plot_scan(
     output=True,
     steps: bool | int = False,
     normalize=False,
-    smoothe_output: bool | int = False,
+    smoothe_output: bool | float = False,
     ax=None,
     **kwargs,
 ):
     if not (laser or output):
         raise ValueError("At least one of 'laser' or 'output' must be True.")
+
+    if smoothe_output:
+        if not isinstance(smoothe_output, float):
+            smoothe_output = 10 ** (-7)
+        data = data.smoothed(smoothe_output)
+        data = data.sparsified(2 / smoothe_output)
 
     time, output_data, laser_data = (
         (data.time, data.output, data.laser)
@@ -57,13 +63,6 @@ def plot_scan(
             output_data = (output_data - output_data.min()) / (
                 output_data.max() - output_data.min()
             )
-
-        if smoothe_output:
-            if not isinstance(smoothe_output, int):
-                smoothe_output = 60
-
-            window = len(output_data) // smoothe_output
-            output_data = uniform_filter1d(output_data, window)
 
         lines = ax.plot(time, output_data, **kwargs)
 

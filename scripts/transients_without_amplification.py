@@ -6,25 +6,30 @@ from ringfit.data import *
 from ringfit.plotting import *
 from ringfit.fit import *
 
-path = (
-    "/home/hiro/Documents/org/roam/code/fitting_ringdown/data/08_05_24/nice_transient_2"
-)
-scan = ScanData.from_dir(path, truncation=[0, 50])
+path = "/home/hiro/Documents/org/roam/code/fitting_ringdown/data/08_05_24/characterization_first"
+scan = ScanData.from_dir(path)
 
 # %% interactive
-STEPS = [2, 3, 5]
+STEPS = [25, 27, 28]
 fig = plt.figure("interactive")
-ax, *axs = fig.subplots(1, len(STEPS))
-plot_scan(scan, smoothe_output=500, normalize=True, laser=True, steps=True, ax=ax)
+fig.clf()
+ax, *axs = fig.subplots(1, len(STEPS) + 1)
 
+plot_scan(
+    scan, smoothe_output=10 ** (-6), normalize=True, laser=True, steps=True, ax=ax
+)
+
+# %% plot steps
 for ax, STEP in zip(axs, STEPS):
-    time, output, _ = scan.for_step(step=STEP)
-    t, o, params, cov, scaled = fit_transient(time, output, window_size=100)
+    data = scan.for_step(step=STEP).smoothed(10**-6)
 
+    t, o, params, cov, scaled = fit_transient(data.time, data.output)
+
+    ax.cla()
     ax.plot(t, o)
     ax.plot(t, transient_model(t, *params))
     ax.set_title(
-        f"Transient 2, γ={scaled[1] / 10**3:.2f}kHz ({cov[1] / 10**3:.2f}kHz)\n ω/2π={scaled[0] / (2*np.pi * 10**3):.5f}kHz\n step={STEP}"
+        f"Transient {STEP}, γ={1/scaled[1] * 10**6:.2f}μs ({cov[1]/scaled[1]**2 * 10**6:.2f}μs)\n ω/2π={scaled[0] / (2*np.pi * 10**3):.5f}kHz\n step={STEP}"
     )
 
     freq_unit = params[1] / scaled[1]
