@@ -1,0 +1,151 @@
+Python 3.11.9 (main, Apr  2 2024, 08:25:04) [GCC 13.2.0]
+Type 'copyright', 'credits' or 'license' for more information
+IPython 8.24.0 -- An enhanced Interactive Python. Type '?' for help.
+
+Python 3.11.9 (main, Apr  2 2024, 08:25:04) [GCC 13.2.0]
+Type 'copyright', 'credits' or 'license' for more information
+IPython 8.24.0 -- An enhanced Interactive Python. Type '?' for help.
+
+In [1]: 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+In [2]: %run -i /home/hiro/Documents/org/roam/code/fitting_ringdown/scripts/experiments/003_experimental_ringdown_fft.py # load script buffer
+
+In [3]: 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+In [3]: %run -i /tmp/python-vterm1EdyiK.py # Fourier
+
+In [4]: %run -i /tmp/python-vtermHclYEt.py # Fourier
+
+In [5]: %run -i /tmp/python-vtermUXKyDJ.py # CSV
+
+In [6]: %run -i /tmp/python-vtermIjaHIZ.py # Fourier
+
+In [7]: %run -i /tmp/python-vtermHYpcEb.py # Fourier
+
+In [8]: ax3 = ax.twinx()
+
+In [9]: ax3.plot(freq, np.gradient(np.angle(fft)), linewidth=0.1, color="red", zorder=-10)
+Out[9]: [<matplotlib.lines.Line2D at 0x7f83e3008dd0>]
+
+In [10]: %run -i /tmp/python-vtermIhW5K3.py # peaks
+
+In [11]: %run -i /tmp/python-vterm3zwD7E.py # peaks
+
+In [12]: %run -i /tmp/python-vtermJ1uevg.py # peaks
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+File /tmp/python-vtermJ1uevg.py:4
+      1 # %% peaks
+      2 freq_step = freq[1] - freq[0]
+----> 4 peaks, peak_info = scipy.signal.find_peaks(np.abs(fft) ** 2, distance=1e4 / freq_step)
+      5 ax.plot(freq[peaks], np.abs(fft[peaks]) ** 2, "x")
+
+File /nix/store/dbxrivq1l53hnfjsp491yrjnzy651sqg-python3.11-scipy-1.13.0/lib/python3.11/site-packages/scipy/signal/_peak_finding.py:941, in find_peaks(x, height, threshol
+d, distance, prominence, width, wlen, rel_height, plateau_size)
+    939 x = _arg_x_as_expected(x)
+    940 if distance is not None and distance < 1:
+--> 941     raise ValueError('`distance` must be greater or equal to 1')
+    943 peaks, left_edges, right_edges = _local_maxima_1d(x)
+    944 properties = {}
+
+ValueError: `distance` must be greater or equal to 1
+
+In [13]: %run -i /tmp/python-vtermZ1ZHBs.py # peaks
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+File /tmp/python-vtermZ1ZHBs.py:4
+      1 # %% peaks
+      2 freq_step = freq[1] - freq[0]
+----> 4 peaks, peak_info = scipy.signal.find_peaks(np.abs(fft) ** 2, distance=1e4 / freq_step)
+      5 ax.plot(freq[peaks], np.abs(fft[peaks]) ** 2, "x")
+
+File /nix/store/dbxrivq1l53hnfjsp491yrjnzy651sqg-python3.11-scipy-1.13.0/lib/python3.11/site-packages/scipy/signal/_peak_finding.py:941, in find_peaks(x, height, threshol
+d, distance, prominence, width, wlen, rel_height, plateau_size)
+    939 x = _arg_x_as_expected(x)
+    940 if distance is not None and distance < 1:
+--> 941     raise ValueError('`distance` must be greater or equal to 1')
+    943 peaks, left_edges, right_edges = _local_maxima_1d(x)
+    944 properties = {}
+
+ValueError: `distance` must be greater or equal to 1
+
+In [14]: %run -i /tmp/python-vterm220t3Y.py # peaks
+
+In [15]: %run -i /tmp/python-vtermoezkoM.py # Fourier
+
+In [16]: %run -i /tmp/python-vterm3uhE2k.py # plot
+

@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 
 def fourier_transform(
@@ -20,9 +21,9 @@ def fourier_transform(
     if window:
         mask = (window[1] > t) & (t > window[0])
         t = t[mask]
-        signal = signal[mask]
+        signal = signal[mask]  # * scipy.signal.windows.hamming(len(t))
 
-    freq = np.fft.rfftfreq(len(t), t[1] - t[0])
+    freq = np.fft.rfftfreq(len(t), t[2] - t[1])
     fft = np.fft.rfft(signal)
 
     mask = (freq > low_cutoff) & (freq < high_cutoff)

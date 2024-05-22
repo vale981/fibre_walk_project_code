@@ -32,11 +32,15 @@ def plot_scan(
     steps: bool | int = False,
     normalize=False,
     smoothe_output: bool | float = False,
+    max_frequency: float | bool = 0,
     ax=None,
     **kwargs,
 ):
     if not (laser or output):
         raise ValueError("At least one of 'laser' or 'output' must be True.")
+
+    if max_frequency:
+        data = data.sparsified(max_frequency)
 
     if smoothe_output:
         if not isinstance(smoothe_output, float):

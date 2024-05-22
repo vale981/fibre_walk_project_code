@@ -66,9 +66,11 @@ class ScanData:
         """
 
         directory = Path(directory)
-        laser = np.load(directory / "signal_laser.npy")
+        laserpath = directory / "signal_laser.npy"
+
         output = np.load(directory / "signal_outp.npy")
         time = np.load(directory / "time.npy")
+        laser = np.load(laserpath) if laserpath.exists() else np.zeros_like(time)
 
         return cls(laser, output, time, **kwargs)
 
@@ -119,7 +121,7 @@ class ScanData:
         """
 
         return ScanData(
-            self._laser, self._output, self._time, max_frequency=max_frequency
+            self._laser, self._output.copy(), self._time, max_frequency=max_frequency
         )
 
     @functools.cache
