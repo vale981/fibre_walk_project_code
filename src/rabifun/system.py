@@ -29,6 +29,8 @@ class Params:
     laser_detuning: float = 0.0
     """Detuning of the laser relative to the _A_ mode."""
 
+    measurement_detuning: float = 0.0
+
     laser_off_time: float | None = None
     """Time at which the laser is turned off."""
 
@@ -38,8 +40,10 @@ class Params:
     rwa: bool = False
     """Whether to use the rotating wave approximation."""
 
+    dynamic_detunting: tuple[float, float] = 0, 0
+
     def periods(self, n: float):
-        return n * 2 * np.pi / self.Ω
+        return n / self.Ω
 
     def lifetimes(self, n: float):
         return n / self.η
@@ -50,15 +54,16 @@ class Params:
 
     @property
     def ω_eom(self):
-        return self.Ω - self.δ - self.Δ
+        return 2 * np.pi * (self.Ω - self.δ - self.Δ)
 
 
 class RuntimeParams:
     """Secondary Parameters that are required to run the simulation."""
 
     def __init__(self, params: Params):
-        Ωs = np.arange(0, params.N) * params.Ω - 1j * np.repeat(params.η, params.N)
-        Ωs[1:] -= params.δ
+        Ωs = 2 * np.pi * np.concatenate(
+            [[-1 * params.δ, params.δ], np.arange(1, params.N + 1) * params.Ω]
+        ) - 1j * np.repeat(params.η / 2, params.N + 2)
 
         self.Ωs = Ωs
 
@@ -80,14 +85,13 @@ def time_axis(params: Params, lifetimes: float, resolution: float = 1):
     )
 
 
-def eom_drive(t, x, d, ω, rwa):
+def eom_drive(t, x, d, ω):
     """The electrooptical modulation drive.
 
     :param t: time
     :param x: amplitudes
     :param d: drive amplitude
     :param ω: drive frequency
-    :param rwa: whether to use the rotating wave approximation
     """
 
     stacked = np.repeat([x], len(x), 0)
@@ -95,10 +99,17 @@ def eom_drive(t, x, d, ω, rwa):
     stacked = np.sum(stacked, axis=1)
     driven_x = d * np.sin(ω * t) * stacked
 
-    if rwa and len(x) > 2:
-        driven_x[2:] = 0
-
     return driven_x
+
+
+def laser_frequency(params: Params, t: np.ndarray):
+    base = 2 * np.pi * (params.laser_detuning + params.δ)
+    if params.dynamic_detunting[1] == 0:
+        return base
+
+    return base + 2 * np.pi * (
+        params.dynamic_detunting[0] * t / params.dynamic_detunting[1]
+    )
 
 
 def make_righthand_side(runtime_params: RuntimeParams, params: Params):
@@ -107,13 +118,21 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
     def rhs(t, x):
         differential = runtime_params.Ωs * x
 
+        if params.rwa:
+            x[0] = 0
+            x[3:] = 0
+
         if (params.drive_off_time is None) or (t < params.drive_off_time):
-            differential += eom_drive(t, x, params.d, params.ω_eom, params.rwa)
+            differential += eom_drive(t, x, params.d, params.ω_eom)
 
         if (params.laser_off_time is None) or (t < params.laser_off_time):
-            laser = np.exp(-1j * params.laser_detuning * t)
-            differential[0] += laser / np.sqrt(2)
-            differential[1:] += laser
+            laser = np.exp(-1j * laser_frequency(params, t) * t)
+            differential[0:2] += laser / np.sqrt(2)
+            differential[2:] += laser
+
+        if params.rwa:
+            differential[0] = 0
+            differential[3:] = 0
 
         return -1j * differential
 
@@ -130,14 +149,14 @@ def solve(t: np.ndarray, params: Params):
     runtime = RuntimeParams(params)
     rhs = make_righthand_side(runtime, params)
 
-    initial = np.zeros(params.N, np.complex128)
+    initial = np.zeros(params.N + 2, np.complex128)
 
     return scipy.integrate.solve_ivp(
         rhs,
         (np.min(t), np.max(t)),
         initial,
         vectorized=False,
-        # max_step=0.1 * np.pi / (params.Ω * params.N),
+        # max_step=0.01 * np.pi / (params.Ω * params.N),
         t_eval=t,
     )
 
@@ -151,9 +170,16 @@ def in_rotating_frame(
     return amplitudes * np.exp(1j * Ωs[:, None].real * t[None, :])
 
 
-def output_signal(t: np.ndarray, amplitudes: np.ndarray, laser_detuning: float):
+def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     """
     Calculate the output signal when mixing with laser light of
     frequency `laser_detuning`.
     """
-    return (np.sum(amplitudes, axis=0) * np.exp(1j * laser_detuning * t)).imag
+    return (
+        np.sum(amplitudes, axis=0)
+        * np.exp(
+            1j
+            * (laser_frequency(params, t) + 2 * np.pi * params.measurement_detuning)
+            * t
+        )
+    ).imag

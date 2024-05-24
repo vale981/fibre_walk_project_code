@@ -9,12 +9,25 @@ from plot_utils import wrap_plot
 def transient_rabi():
     """A transient rabi oscillation without noise."""
 
-    params = Params(η=0.0001, δ=1 / 4, d=0.1, laser_detuning=0.1, Δ=0.005, N=2)
-    t = time_axis(params, 3, 0.1)
+    params = Params(
+        η=0.7,
+        Ω=13.07,
+        δ=13.07 / 4,
+        d=13.07 / 4 * 1,
+        laser_detuning=0.1,
+        Δ=13.07 / 4 * 0.01,
+        N=3,
+        measurement_detuning=1,
+        rwa=False,
+    )
+    params.laser_off_time = params.lifetimes(10)
+    t = time_axis(params, 50, 0.1)
     solution = solve(t, params)
-    signal = output_signal(t, solution.y, params.laser_detuning)
+    signal = output_signal(t, solution.y, params)
 
-    f, (_, ax) = plot_simulation_result(make_figure(), t, signal, params)
+    f, (_, ax) = plot_simulation_result(
+        make_figure(), t, signal, params, window=(params.lifetimes(10), t[-1])
+    )
     plot_sidebands(ax, params)
     # ax.set_xlim(0.73, 0.77)
     f.suptitle("Transient Rabi oscillation")
@@ -27,7 +40,7 @@ def steady_rabi():
     t = time_axis(params, lifetimes=10, resolution=1)
 
     solution = solve(t, params)
-    signal = output_signal(t, solution.y, params.laser_detuning)
+    signal = output_signal(t, solution.y, params)
 
     f, (_, ax) = plot_simulation_result(
         make_figure(), t, signal, params, window=(params.lifetimes(8), t[-1])
@@ -43,7 +56,7 @@ def noisy_transient_rabi():
     params = Params(η=0.001, d=0.1, laser_detuning=0, Δ=0.05)
     t = time_axis(params, 2, 1)
     solution = solve(t, params)
-    signal = output_signal(t, solution.y, params.laser_detuning)
+    signal = output_signal(t, solution.y, params)
 
     noise_strength = 0.1
     signal = add_noise(signal, noise_strength)
@@ -54,7 +67,6 @@ def noisy_transient_rabi():
     f.suptitle(f"Transient Rabi oscillation with noise strength {noise_strength}.")
 
 
-@autoclose
 def ringdown_after_rabi():
     """Demonstrates the nonstationary ringdown of the resonator after turning off the EOM and laser drive."""
     off_lifetime = 4
@@ -66,7 +78,7 @@ def ringdown_after_rabi():
 
     t = time_axis(params, lifetimes=5, resolution=1)
     solution = solve(t, params)
-    signal = output_signal(t, solution.y, params.laser_detuning)
+    signal = output_signal(t, solution.y, params)
 
     # noise_strength = 0.1
     # signal = add_noise(signal, noise_strength)
@@ -79,3 +91,18 @@ def ringdown_after_rabi():
     fftax.axvline(params.laser_detuning, color="black")
 
     f.suptitle(f"Ringdown after rabi osci EOM after {off_lifetime} lifetimes.")
+
+
+def sweep():
+    """A transient rabi oscillation without noise."""
+
+    params = Params(η=1, δ=1 / 4, d=0.0, laser_detuning=100, N=1)
+    t = time_axis(params, 1000, 0.001)
+    params.dynamic_detunting = -100, t[-1]
+    solution = solve(t, params)
+    signal = output_signal(t, solution.y, params)
+
+    f, (_, ax) = plot_simulation_result(make_figure(), t, signal, params)
+    plot_sidebands(ax, params)
+    # ax.set_xlim(0.73, 0.77)
+    f.suptitle("Transient Rabi oscillation")
