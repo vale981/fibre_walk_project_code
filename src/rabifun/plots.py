@@ -46,7 +46,7 @@ def plot_simulation_result(
 
     ax3.plot(
         freq,
-        np.unwrap(np.angle(fft) + np.pi, 2 * np.pi),
+        np.angle(fft),
         linestyle="--",
         color="C2",
         alpha=0.5,
@@ -63,7 +63,7 @@ def plot_sidebands(ax, params: Params):
     :param ax: axis to plot on
     :param params: system parameters
     """
-    energy = params.rabi_splitting / (2 * np.pi)
+    energy = params.rabi_splitting
 
     first_sidebands = np.abs(
         -(params.laser_detuning + params.measurement_detuning)
@@ -71,8 +71,7 @@ def plot_sidebands(ax, params: Params):
         + params.Δ / 2
     )
     second_sidebands = (
-        params.Ω
-        - params.δ
+        params.Ω * (1 - params.δ)
         - (params.laser_detuning + params.measurement_detuning)
         + np.array([1, -1]) * energy / 2
         - params.Δ / 2

@@ -12,24 +12,26 @@ class Params:
     """Number of bath modes."""
 
     Ω: float = 1
-    """Free spectral range of the system."""
-
-    η: float = 0.1
-    """Decay rate of the system."""
-
-    d: float = 0.01
-    """Drive amplitude."""
-
-    Δ: float = 0.0
-    """Detuning of the EOM drive."""
+    """Free spectral range of the system in *frequency units*."""
 
     δ: float = 1 / 4
-    """Mode splitting."""
+    """Mode splitting in units of :any:`Ω`."""
+
+    η: float = 0.1
+    """Decay rate :math:`\eta/2` of the system in frequency units (no
+    :math:`2 \pi`)."""
+
+    d: float = 0.01
+    """Drive amplitude in units of :any:`Ω`."""
+
+    Δ: float = 0.0
+    """Detuning of the EOM drive in *frequency units*."""
 
     laser_detuning: float = 0.0
     """Detuning of the laser relative to the _A_ mode."""
 
     measurement_detuning: float = 0.0
+    """Additional detuning of the measurement laser signal relative to the _A_ mode."""
 
     laser_off_time: float | None = None
     """Time at which the laser is turned off."""
@@ -41,28 +43,42 @@ class Params:
     """Whether to use the rotating wave approximation."""
 
     dynamic_detunting: tuple[float, float] = 0, 0
+    """
+    A tuple of the total amount and the timescale (``1/speed``) of the
+    detuning of the laser.
+    """
 
     def periods(self, n: float):
+        """
+        Returns the number of periods of the system that correspond to
+        `n` cycles.
+        """
         return n / self.Ω
 
     def lifetimes(self, n: float):
+        """
+        Returns the number of lifetimes of the system that correspond to
+        `n` cycles.
+        """
         return n / self.η
 
     @property
     def rabi_splitting(self):
-        return np.sqrt(self.d**2 + self.Δ**2)
+        """The Rabi splitting of the system in *frequency units*."""
+        return np.sqrt((self.Ω * self.d) ** 2 + self.Δ**2)
 
     @property
     def ω_eom(self):
-        return 2 * np.pi * (self.Ω - self.δ - self.Δ)
+        """The frequency of the EOM drive as *angular frequency*."""
+        return 2 * np.pi * (self.Ω * (1 - self.δ) - self.Δ)
 
 
 class RuntimeParams:
     """Secondary Parameters that are required to run the simulation."""
 
     def __init__(self, params: Params):
-        Ωs = 2 * np.pi * np.concatenate(
-            [[-1 * params.δ, params.δ], np.arange(1, params.N + 1) * params.Ω]
+        Ωs = 2 * np.pi * params.Ω * np.concatenate(
+            [[-1 * params.δ, params.δ], np.arange(1, params.N + 1)]
         ) - 1j * np.repeat(params.η / 2, params.N + 2)
 
         self.Ωs = Ωs
@@ -103,7 +119,8 @@ def eom_drive(t, x, d, ω):
 
 
 def laser_frequency(params: Params, t: np.ndarray):
-    base = 2 * np.pi * (params.laser_detuning + params.δ)
+    """The frequency of the laser light as a function of time."""
+    base = 2 * np.pi * (params.laser_detuning + params.Ω * params.δ)
     if params.dynamic_detunting[1] == 0:
         return base
 
@@ -123,7 +140,9 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
             x[3:] = 0
 
         if (params.drive_off_time is None) or (t < params.drive_off_time):
-            differential += eom_drive(t, x, params.d, params.ω_eom)
+            differential += eom_drive(
+                t, x, 2 * np.pi * params.Ω * params.d, params.ω_eom
+            )
 
         if (params.laser_off_time is None) or (t < params.laser_off_time):
             laser = np.exp(-1j * laser_frequency(params, t) * t)
