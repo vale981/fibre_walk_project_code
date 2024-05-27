@@ -21,7 +21,7 @@ class Params:
     """Decay rate :math:`\eta/2` of the system in frequency units (no
     :math:`2 \pi`)."""
 
-    d: float = 0.01
+    g_0: float = 0.01
     """Drive amplitude in units of :any:`Ω`."""
 
     Δ: float = 0.0
@@ -65,7 +65,7 @@ class Params:
     @property
     def rabi_splitting(self):
         """The Rabi splitting of the system in *frequency units*."""
-        return np.sqrt((self.Ω * self.d) ** 2 + self.Δ**2)
+        return np.sqrt((self.Ω * self.g_0) ** 2 + self.Δ**2)
 
     @property
     def ω_eom(self):
@@ -141,7 +141,7 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
 
         if (params.drive_off_time is None) or (t < params.drive_off_time):
             differential += eom_drive(
-                t, x, 2 * np.pi * params.Ω * params.d, params.ω_eom
+                t, x, 2 * np.pi * params.Ω * params.g_0, params.ω_eom
             )
 
         if (params.laser_off_time is None) or (t < params.laser_off_time):
