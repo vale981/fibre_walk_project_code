@@ -106,7 +106,7 @@ def ringdown_after_rabi():
         laser_detuning=laser_detuning,
         Δ=0,
         N=3,
-        measurement_detuning=-2,
+        measurement_detuning=2,
         rwa=False,
     )
 
