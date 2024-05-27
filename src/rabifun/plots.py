@@ -45,8 +45,8 @@ def plot_simulation_result(
     ax2.legend()
 
     ax3.plot(
-        freq,
-        np.angle(fft),
+        freq[:-1],
+        np.cumsum(np.angle(fft[1:] / fft[:-1])),
         linestyle="--",
         color="C2",
         alpha=0.5,
