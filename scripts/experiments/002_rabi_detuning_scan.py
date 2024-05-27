@@ -15,7 +15,7 @@ def transient_rabi():
         δ=1 / 4,
         g_0=0.02,
         laser_detuning=0,
-        Δ=0,
+        ω_c=0,
         N=3,
         measurement_detuning=1,
         rwa=False,
@@ -29,7 +29,7 @@ def transient_rabi():
     f, (_, ax) = plot_simulation_result(
         make_figure(), t, signal, params, window=(params.lifetimes(15), t[-1])
     )
-    plot_sidebands(ax, params)
+    plot_rabi_sidebands(ax, params)
     f.suptitle("Transient Rabi oscillation")
 
 
@@ -42,7 +42,7 @@ def steady_rabi():
         δ=1 / 4,
         g_0=0.02,
         laser_detuning=0,
-        Δ=0,
+        ω_c=0,
         N=3,
         measurement_detuning=1,
         rwa=False,
@@ -55,7 +55,7 @@ def steady_rabi():
     f, (_, ax) = plot_simulation_result(
         make_figure(), t, signal, params, window=(params.lifetimes(8), t[-1])
     )
-    plot_sidebands(ax, params)
+    plot_rabi_sidebands(ax, params)
 
     f.suptitle("Steady State Rabi oscillation. No Rabi Sidebands.")
 
@@ -69,7 +69,7 @@ def noisy_transient_rabi():
         δ=1 / 4,
         g_0=0.02,
         laser_detuning=0,
-        Δ=0,
+        ω_c=0,
         N=3,
         measurement_detuning=1,
         rwa=False,
@@ -88,7 +88,7 @@ def noisy_transient_rabi():
     f, (_, ax) = plot_simulation_result(
         make_figure(), t, signal, params, window=(params.laser_off_time, t[-1])
     )
-    plot_sidebands(ax, params)
+    plot_rabi_sidebands(ax, params)
 
     f.suptitle(f"Transient Rabi oscillation with noise strength {noise_strength}.")
 
@@ -104,7 +104,7 @@ def ringdown_after_rabi():
         δ=1 / 4,
         g_0=0.02,
         laser_detuning=laser_detuning,
-        Δ=0,
+        ω_c=0,
         N=3,
         measurement_detuning=2,
         rwa=False,
@@ -139,7 +139,7 @@ def sweep():
         δ=1 / 4,
         g_0=0.0,
         laser_detuning=-2,
-        Δ=0,
+        ω_c=0,
         N=3,
         measurement_detuning=0,
         rwa=False,
@@ -150,6 +150,6 @@ def sweep():
     signal = output_signal(t, solution.y, params)
 
     f, (_, ax) = plot_simulation_result(make_figure(), t, signal, params)
-    plot_sidebands(ax, params)
+    plot_rabi_sidebands(ax, params)
     # ax.set_xlim(0.73, 0.77)
     f.suptitle("Transient Rabi oscillation")

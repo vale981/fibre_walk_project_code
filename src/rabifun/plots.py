@@ -1,5 +1,5 @@
 from plot_utils import *
-from .system import Params
+from .system import Params, RuntimeParams
 from .analysis import fourier_transform
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,7 +37,7 @@ def plot_simulation_result(
     ax2.set_xlim(0, params.Ω * (params.N))
     ax3 = ax2.twinx()
 
-    ax2.plot(freq, np.abs(fft))
+    ax2.plot(freq, np.abs(fft) ** 2)
     # ax2.set_yscale("log")
     ax2.set_title("FFT")
     ax2.set_xlabel("ω [linear]")
@@ -57,7 +57,7 @@ def plot_simulation_result(
     return (ax1, ax2)
 
 
-def plot_sidebands(ax, params: Params):
+def plot_rabi_sidebands(ax, params: Params):
     """Visualize the frequency of the sidebands.
 
     :param ax: axis to plot on
@@ -68,20 +68,21 @@ def plot_sidebands(ax, params: Params):
     first_sidebands = np.abs(
         -(params.laser_detuning + params.measurement_detuning)
         + np.array([1, -1]) * energy / 2
-        + params.Δ / 2
+        + params.ω_c / 2
     )
     second_sidebands = (
         params.Ω * (1 - params.δ)
         - (params.laser_detuning + params.measurement_detuning)
         + np.array([1, -1]) * energy / 2
-        - params.Δ / 2
+        - params.ω_c / 2
     )
 
-    ax.axvline(
-        params.ω_eom / (2 * np.pi) - params.measurement_detuning,
-        color="black",
-        label="steady state",
-    )
+    for ω in RuntimeParams(params).drive_frequencies:
+        ax.axvline(
+            ω - params.measurement_detuning,
+            color="black",
+            label="steady state",
+        )
 
     for n, sideband in enumerate(first_sidebands):
         ax.axvline(
