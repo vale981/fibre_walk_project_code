@@ -1,5 +1,5 @@
 from plot_utils import *
-from .system import Params, RuntimeParams
+from .system import Params, RuntimeParams, solve, coupled_mode_indices, mode_name
 from .analysis import fourier_transform
 import matplotlib.pyplot as plt
 import numpy as np
@@ -97,3 +97,89 @@ def plot_rabi_sidebands(ax, params: Params):
         )
 
     ax.legend()
+
+
+def clone_color_or_default(lines: dict, mode: int):
+    """
+    Get the color of a mode or a default color if it doesn't exist.
+
+    :param lines: A dictionary of lines indexed by mode index.
+    :param mode: The mode to get the color of.
+    """
+
+    line = lines.get(mode, None)
+    if line is None:
+        return f"C{mode}"
+
+    return line.get_color()
+
+
+def plot_rotating_modes(ax, solution, params, plot_uncoupled=False, clone_colors=None):
+    """Plot the amplitude of the modes in the rotating frame.
+
+    :param ax: The axis to plot on.
+    :param solution: The solution to plot.
+    :param params: The system parameters.
+    :param plot_uncoupled: Whether to plot the uncoupled modes.
+    :param clone_colors: A dictionary of lines indexed by mode index
+        from which to clone colors from.
+    """
+
+    lines = dict()
+    if clone_colors is None:
+        clone_colors = dict()
+
+    for mode in coupled_mode_indices(params):
+        lines[mode] = ax.plot(
+            solution.t,
+            np.abs(solution.y[mode]),
+            label=mode_name(mode) + (" (rwa)" if params.rwa else ""),
+            color=clone_color_or_default(clone_colors, mode),
+            linestyle="dashdot" if params.rwa else "-",
+        )[0]
+
+    if plot_uncoupled:
+        for mode in uncoupled_mode_indices(params):
+            lines[mode] = ax.plot(
+                solution.t,
+                np.abs(solution.y[mode]),
+                label=mode_name(mode) + (" (rwa)" if params.rwa else ""),
+                color=clone_color_or_default(clone_colors, mode),
+                linestyle="dotted" if params.rwa else "--",
+            )[0]
+
+    ax.legend()
+    ax.set_xlabel("Time (1/Ω)")
+    ax.set_ylabel("Amplitude")
+    ax.set_title("Mode Amplitudes in the Rotating Frame")
+
+    return lines
+
+
+def plot_rwa_vs_real_amplitudes(ax, t, params, **kwargs):
+    """Plot the amplitudes of the modes of the system ``params`` in
+    the rotating frame with and without the RWA onto ``ax``.
+
+    The keyword arguments are passed to :any:`plot_rotating_modes`.
+
+    :param ax: The axis to plot on.
+    :param t: The time axis.
+    :param params: The system parameters.
+    :param kwargs: Additional keyword arguments to pass to
+        :any:`plot_rotating_modes`.
+
+    :returns: A tuple of the solutions without and with the rwa and
+              the dictionaries of the lines plotted indexed by mode
+              index.
+    """
+    params.rwa = False
+    solution_no_rwa = solve(t, params)
+    no_rwa_lines = plot_rotating_modes(ax, solution_no_rwa, params, **kwargs)
+
+    params.rwa = True
+    solution_rwa = solve(t, params)
+    rwa_lines = plot_rotating_modes(
+        ax, solution_rwa, params, **kwargs, clone_colors=no_rwa_lines
+    )
+
+    return solution_no_rwa, solution_rwa, no_rwa_lines, rwa_lines

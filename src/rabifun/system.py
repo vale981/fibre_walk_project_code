@@ -25,8 +25,7 @@ class Params:
     """Mode splitting in units of :any:`Ω`."""
 
     η: float = 0.1
-    """Decay rate :math:`\eta/2` of the system in frequency units (no
-    :math:`2 \pi`)."""
+    """Decay rate :math:`\eta/2` of the system in angular frequency units."""
 
     g_0: float = 0.01
     """Drive amplitude in units of :any:`Ω`."""
@@ -61,9 +60,14 @@ class Params:
     flat_energies: bool = False
     """Whether to use a flat distribution of bath energies."""
 
+    initial_state: np.ndarray | None = None
+
     def __post_init__(self):
         if self.N_couplings > self.N:
             raise ValueError("N_couplings must be less than or equal to N.")
+
+        if self.initial_state and len(self.initial_state) != self.N + 2:
+            raise ValueError("Initial state must have length N + 2.")
 
     def periods(self, n: float):
         """
@@ -91,14 +95,30 @@ class Params:
 class RuntimeParams:
     """Secondary Parameters that are required to run the simulation."""
 
-    __slots__ = ["Ωs", "drive_frequencies", "drive_amplitudes"]
-
     def __init__(self, params: Params):
-        Ωs = 2 * np.pi * params.Ω * np.concatenate(
-            [[-1 * params.δ, params.δ], np.arange(1, params.N + 1)]
-        ) - 1j * np.repeat(params.η / 2, params.N + 2)
+        freqs = (
+            2
+            * np.pi
+            * params.Ω
+            * np.concatenate([[-1 * params.δ, params.δ], np.arange(1, params.N + 1)])
+        )
+        decay_rates = -1j * np.repeat(params.η / 2, params.N + 2)
+        Ωs = freqs + decay_rates
 
         self.Ωs = Ωs
+        self.diag_energies = (
+            2
+            * np.pi
+            * np.concatenate(
+                [
+                    [0, 0],
+                    drive_detunings(params),
+                    np.zeros(params.N - params.N_couplings),
+                ]
+            )
+            + decay_rates
+        )
+        self.detuned_Ωs = freqs - self.diag_energies.real
 
         self.drive_frequencies, self.drive_amplitudes = (
             drive_frequencies_and_amplitudes(params)
@@ -125,7 +145,7 @@ def time_axis(params: Params, lifetimes: float, resolution: float = 1):
     )
 
 
-def eom_drive(t, x, ds, ωs, rwa):
+def eom_drive(t, x, ds, ωs, rwa, detuned_Ωs):
     """The electrooptical modulation drive.
 
     :param t: time
@@ -134,15 +154,15 @@ def eom_drive(t, x, ds, ωs, rwa):
     :param ωs: linear drive frequencies
     """
 
-    stacked = np.repeat([x], len(x), 0)
-
     if rwa:
-        stacked[1, 2 : 2 + len(ωs)] *= ds * np.exp(-1j * 2 * np.pi * ωs * t)
-        stacked[2 : 2 + len(ωs), 1] *= ds * np.exp(1j * 2 * np.pi * ωs * t)
-        driven_x = np.sum(stacked, axis=1)
+        det_matrix = np.zeros((len(x), len(x)))
+        det_matrix[1, 2:] = ds / 2
+        det_matrix[2:, 1] = ds / 2
+        driven_x = det_matrix @ x
     else:
-        stacked = np.sum(stacked, axis=1)
-        driven_x = np.sum(ds * np.sin(2 * np.pi * ωs * t)) * stacked
+        freqs = np.exp(-1j * detuned_Ωs * t)
+        det_matrix = np.outer(np.conj(freqs), freqs)
+        driven_x = np.sum(ds * np.sin(2 * np.pi * ωs * t)) * (det_matrix @ x)
 
     return driven_x
 
@@ -165,7 +185,7 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
     """The right hand side of the equation of motion."""
 
     def rhs(t, x):
-        differential = runtime_params.Ωs * x
+        differential = runtime_params.diag_energies * x
 
         if params.rwa:
             x[0] = 0
@@ -178,24 +198,41 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
                 runtime_params.drive_amplitudes,
                 runtime_params.drive_frequencies,
                 params.rwa,
+                runtime_params.detuned_Ωs,
             )
 
         if (params.laser_off_time is None) or (t < params.laser_off_time):
-            laser = np.exp(-1j * laser_frequency(params, t) * t)
-            differential[0:2] += laser / np.sqrt(2)
-            differential[2:] += laser
+            freqs = laser_frequency(params, t) - runtime_params.detuned_Ωs.real
 
-        if params.rwa:
-            differential[0] = 0
-            differential[2 + params.N_couplings :] = 0
+            laser = np.exp(
+                -1j * (laser_frequency(params, t) - runtime_params.detuned_Ωs.real) * t
+            )
+
+            if params.rwa:
+                index = np.argmin(abs(freqs))
+                laser[0:index] = 0
+                laser[index + 1 :] = 0
+
+            differential[0:2] += laser[:2] / np.sqrt(2)
+            differential[2:] += laser[2:]
+
+        # if params.rwa:
+        #     differential[0] = 0
+        #     differential[2 + params.N_couplings :] = 0
 
         return -1j * differential
 
     return rhs
 
 
-def solve(t: np.ndarray, params: Params):
+def make_zero_intial_state(params: Params) -> np.ndarray:
+    """Make initial state with all zeros."""
+    return np.zeros(params.N + 2, np.complex128)
+
+
+def solve(t: np.ndarray, params: Params, **kwargs):
     """Integrate the equation of motion.
+    The keyword arguments are passed to :any:`scipy.integrate.solve_ivp`.
 
     :param t: time array
     :param params: system parameters
@@ -204,15 +241,23 @@ def solve(t: np.ndarray, params: Params):
     runtime = RuntimeParams(params)
     rhs = make_righthand_side(runtime, params)
 
-    initial = np.zeros(params.N + 2, np.complex128)
+    initial = (
+        make_zero_intial_state(params)
+        if params.initial_state is None
+        else params.initial_state
+    )
 
     return scipy.integrate.solve_ivp(
         rhs,
         (np.min(t), np.max(t)),
         initial,
         vectorized=False,
-        max_step=0.01 * np.pi / (params.Ω * params.N),
+        # max_step=2 * np.pi / (params.Ω * params.N_couplings),
         t_eval=t,
+        method="DOP853",
+        atol=1e-7,
+        rtol=1e-4,
+        **kwargs,
     )
 
 
@@ -248,24 +293,16 @@ def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     ).imag
 
 
-def bath_energies(params: Params) -> np.ndarray:
+def bath_energies(N_couplings: int, ω_c: float) -> np.ndarray:
     """Return the energies (drive detunings) of the bath modes."""
 
-    return np.arange(1, params.N_couplings + 1) * params.ω_c / params.N_couplings
+    return np.arange(1, N_couplings + 1) * ω_c / N_couplings
 
 
-def ohmic_spectral_density(
-    ω: np.ndarray, g_0: float, α: float, ω_c: float
-) -> np.ndarray:
-    """The spectral density of an Ohmic bath."""
+def ohmic_spectral_density(ω: np.ndarray, α: float) -> np.ndarray:
+    """The unnormalized spectral density of an Ohmic bath."""
 
-    mask = (ω > ω_c) | (ω < 0)
-
-    ret = np.empty_like(ω)
-    ret[mask] = 0
-    ret[~mask] = g_0**2 * (α + 1) / (ω_c ** (α + 1)) * (ω**α)
-
-    return ret
+    return ω**α
 
 
 def drive_detunings(params: Params) -> np.ndarray:
@@ -274,7 +311,7 @@ def drive_detunings(params: Params) -> np.ndarray:
     if params.flat_energies:
         Δs = np.repeat(params.ω_c, params.N_couplings)
     else:
-        Δs = bath_energies(params)
+        Δs = bath_energies(params.N_couplings, params.ω_c)
 
     return Δs * params.Ω
 
@@ -286,20 +323,58 @@ def drive_frequencies_and_amplitudes(params: Params) -> tuple[np.ndarray, np.nda
     """
 
     Δs = drive_detunings(params)
-    if params.flat_energies:
-        amplitudes = np.ones_like(Δs)
-    else:
-        amplitudes = (
-            ohmic_spectral_density(
-                Δs, params.g_0 * params.Ω, params.α, params.ω_c * params.Ω
-            )
-            * params.ω_c
-            * params.Ω
-            / Params.N_couplings
-        )
+
+    amplitudes = ohmic_spectral_density(
+        bath_energies(params.N_couplings, 1),
+        params.α,
+    )
 
     amplitudes /= np.sum(amplitudes)
     amplitudes = 2 * np.pi * params.Ω * params.g_0 * np.sqrt(amplitudes)
 
     ωs = ((np.arange(1, params.N_couplings + 1) - params.δ) * params.Ω) - Δs
     return ωs, amplitudes
+
+
+def mode_name(mode: int):
+    """Return the name of the mode."""
+    if mode == 0:
+        return "anti-A"
+    if mode == 1:
+        return "A"
+
+    return f"B{mode - 1}"
+
+
+def a_site_indices(params: Params):
+    """Return the indices of the A sites."""
+    return [0, 1]
+
+
+def coupled_bath_mode_indices(params: Params):
+    """Return the indices of the bath modes that are coupled to the A site."""
+    return np.arange(2, 2 + params.N_couplings)
+
+
+def uncoupled_bath_mode_indices(params: Params):
+    """Return the indices of the bath modes that not coupled to the A site."""
+    return np.arange(2 + params.N_couplings, 2 + params.N)
+
+
+def uncoupled_mode_indices(params: Params):
+    """Return the indices of the modes that not coupled to the A site."""
+    return np.concatenate(
+        [[a_site_indices(params)[0]], uncoupled_bath_mode_indices(params)]
+    )
+
+
+def coupled_mode_indices(params: Params):
+    """Return the indices of the modes that are coupled to the A site."""
+    return np.concatenate(
+        [[a_site_indices(params)[1]], coupled_bath_mode_indices(params)]
+    )
+
+
+def dimension(params: Params):
+    """Return the dimension of the system."""
+    return params.N + 2
