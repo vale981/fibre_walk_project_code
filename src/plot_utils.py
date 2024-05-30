@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 from typing import Callable, Any
 from functools import wraps
 from typing_extensions import ParamSpec, TypeVar, Concatenate
+import yaml
+import inspect
+import subprocess
+import pathlib
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -63,3 +67,90 @@ def lighten_color(color, amount=0.5):
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
+
+def get_jj_info(type):
+    return subprocess.run(
+        ["jj", "log", "-T", type, "-l", "1", "--no-graph"],
+        stdout=subprocess.PIPE,
+    ).stdout.decode("utf-8")
+
+
+def write_meta(path, **kwargs):
+    """Write metatdata for result that has been written to a file
+    under ``path``.
+
+    The metadata includes the change_id, commit_id and the description
+    of the current ``jj`` state, and the source file that generated
+    the result. Additional metadata can be provided through the
+    keyword arguments.
+    """
+    change_id = get_jj_info("change_id")
+    commit_id = get_jj_info("commit_id")
+    description = get_jj_info("description")
+    project_dir = (
+        subprocess.run("git rev-parse --show-toplevel", shell=True, capture_output=True)
+        .stdout.decode("utf-8")
+        .strip()
+    )
+
+    frame = inspect.stack()[1]
+    module = inspect.getmodule(frame[0])
+    filename = str(
+        pathlib.Path(module.__file__).relative_to(project_dir)  # type: ignore
+        if module
+        else "<unknown>"
+    )
+
+    outpath = f"{path}.meta.yaml"
+    with open(outpath, "w") as f:
+        yaml.dump(
+            dict(
+                source=filename,
+                change_id=change_id,
+                commit_id=commit_id,
+                description=description.strip(),
+                refers_to=str(path),
+            )
+            | kwargs,
+            f,
+        )
+
+    print(f"Metadata written to {outpath}")
+
+
+def save_figure(fig, name, *args, **kwargs):
+    dir = pathlib.Path(f"./figs/")
+    dir.mkdir(exist_ok=True)
+    fig.tight_layout()
+
+    write_meta(f"./figs/{name}.pdf", name=name)
+
+    plt.savefig(f"./figs/{name}.pdf", *args, **kwargs)
+    plt.savefig(f"./figs/{name}.png", *args, dpi=600, **kwargs)
+
+    print(f"Figure saved as {name}.pdf")
+
+
+def quick_save_pickle(obj, name, **kwargs):
+    """Quickly save an object to a pickle file with metadata."""
+    import pickle
+
+    path = pathlib.Path(f"./outputs/{name}.pkl")
+    path.parent.mkdir(exist_ok=True)
+
+    with open(path, "wb") as f:
+        pickle.dump(obj, f)
+
+    write_meta(path, **kwargs)
+
+
+def quick_load_pickle(name):
+    """Quickly load an object from a pickle file."""
+
+    import pickle
+
+    path = pathlib.Path(f"./outputs/{name}.pkl")
+
+    with open(path, "rb") as f:
+        return pickle.load(f)
