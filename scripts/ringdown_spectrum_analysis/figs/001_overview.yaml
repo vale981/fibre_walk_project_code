@@ -1,0 +1,5 @@
+change_id: vulxxmykrqmzvlstztzyprlrqnyvzmzz
+commit_id: 4ddaa4118e76e984623f45150d5967ee6029b247
+description: clean up analysis
+name: 001_overview
+source: scripts/ringdown_spectrum_analysis/001_first_exploration.py
