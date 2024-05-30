@@ -9,6 +9,7 @@ import scipy
 from collections import OrderedDict
 import networkx as nx
 from functools import reduce
+import pickle
 
 # %% load data
 path = "../../data/22_05_24/ringdown_try_2"
@@ -22,7 +23,9 @@ window = tuple(
 )
 
 window = tuple(
-    np.array([0.016244684251065847, 0.016248626903395593 + 49e-5]) + 8e-3 - 12e-7
+    np.array([0.016244684251065847 + 0.000002, 0.016248626903395593 + 49e-5])
+    + 8e-3
+    - 12e-7
 )
 
 
@@ -163,7 +166,7 @@ fig.suptitle(f"Ω = {Ω:.2f}MHz, ΔΩ = {ΔΩ:.2f}MHz, Δ_L = {Δ_L:.2f}MHz, δ 
 windows = np.linspace(window[0], window[0] + (window[-1] - window[0]) * 0.1, 100)
 fiducial = peak_freq[neg[1]]
 size = int(300 * 1e-6 / fiducial / scan.timestep)
-w_fun = scipy.signal.windows.gaussian(size, std=0.1 * size, sym=True)
+w_fun = scipy.signal.windows.gaussian(size, std=0.1 * size / 2, sym=True)
 # w_fun = scipy.signal.windows.boxcar(size)
 amps = []
 SFT = scipy.signal.ShortTimeFFT(
@@ -186,18 +189,19 @@ ax_stft.set_xlim(
 )
 
 # %% Decay Plot
-index = np.argmin(np.abs(SFT.f - 1e6 * peak_freq[unmatched[0]])) + 1
-ax_stft.axhline(SFT.f[index])
+index = np.argmin(np.abs(SFT.f - 1e6 * peak_freq[unmatched[1]])) + 1
+ax_decay.clear()
+ax_stft.axhline(SFT.f[index], linestyle="--", alpha=0.5)
 
 hy_mode = np.mean(ft[index - 3 : index + 3, :], axis=0)
 sft_t = SFT.t(len(t))
 
-mask = (sft_t > 1 * SFT.lower_border_end[0] * SFT.T) & (sft_t < np.max(sft_t) * 0.1)
+mask = (sft_t > 1.1 * SFT.lower_border_end[0] * SFT.T) & (sft_t < np.max(sft_t) * 0.1)
 hy_mode = hy_mode[mask]
 sft_t = sft_t[mask]
 
 ax_decay.plot(sft_t, hy_mode)
-ax_decay.set_xscale("log")
+# ax_decay.set_xscale("lin")
 # plt.plot(sft_t, 3e-6 * np.exp(-.9e6 * (sft_t - 3*SFT.lower_border_end[0] * SFT.T)))
 
 
@@ -210,5 +214,19 @@ ax_decay.plot(sft_t, model(sft_t, *p))
 print(p[1] * 1e-6, np.sqrt(np.diag(cov))[1] * 1e-6)
 ax_decay.set_title(f"A Site decay γ = {p[1] * 1e-6:.2f}MHz")
 ax_decay.set_yscale("log")
+# %% save
+if __name__ == "__main__":
+    save_figure(fig, "001_overview")
 
-save_figure(fig, "001_overview")
+    quick_save_pickle(
+        dict(
+            window=window,
+            freq=freq,
+            fft=fft,
+            peaks=peaks,
+            pos=pos,
+            neg=neg,
+            unmatched=unmatched,
+        ),
+        "001_results",
+    )

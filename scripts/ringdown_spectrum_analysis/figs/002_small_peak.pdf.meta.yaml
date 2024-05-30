@@ -1,0 +1,6 @@
+change_id: lwokymwopqysytqumxmppwxvsnvyxrzz
+commit_id: ba5de54d9e7d5d49edf6d21dbb946a78a45bf34f
+description: analyze small peak
+name: 002_small_peak
+refers_to: ./figs/002_small_peak.pdf
+source: src/plot_utils.py

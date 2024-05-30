@@ -9,7 +9,8 @@ def fourier_transform(
     window: tuple[float, float] | None = None,
     low_cutoff: float = 0,
     high_cutoff: float = np.inf,
-):
+    ret_time: bool = False,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray]:
     """
     Compute the Fourier transform of a signal from the time array
     ``t`` and the real signal ``signal``.  Optionally, a time window
@@ -30,4 +31,34 @@ def fourier_transform(
     fft = scipy.fft.rfft(signal, norm="forward", workers=os.cpu_count())
 
     mask = (freq > low_cutoff) & (freq < high_cutoff)
-    return freq[mask], fft[mask]
+    return (freq[mask], fft[mask], t) if ret_time else (freq[mask], fft[mask])
+
+
+def lorentzian(ω, A, ω0, γ, offset):
+    """A Lorentzian function with amplitude ``A``, center frequency
+    ``ω0``, and decay rate ``γ`` and offset ``offset``.
+
+    :param ω: Frequency array.
+    :param A: Amplitude.
+    :param ω0: Center frequency.
+    :param γ: Decay rate. The decay of an amplitude is :math:`\frac{γ}{2}`.
+    :param offset: Vertical offset.
+    """
+
+    return (
+        A * (γ / (4 * np.pi)) ** 2 * (1 / ((ω - ω0) ** 2 + (γ / (4 * np.pi)) ** 2))
+        + offset
+    )
+
+
+def complex_lorentzian(ω, A, ω0, γ):
+    """A Lorentzian function with amplitude ``A``, center frequency
+    ``ω0``, and decay rate ``γ`` and offset ``offset``.
+
+    :param ω: Frequency array.
+    :param A: Amplitude.
+    :param ω0: Center frequency.
+    :param γ: Decay rate. The decay of an amplitude is :math:`\frac{γ}{2}`.
+    """
+
+    return A * (γ / 2) * 1 / (-1j * (ω - ω0) - (γ / (4 * np.pi)))
