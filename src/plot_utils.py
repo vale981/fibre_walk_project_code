@@ -6,9 +6,21 @@ import yaml
 import inspect
 import subprocess
 import pathlib
+import sys
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def noop_if_interactive(f):
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        if hasattr(sys, "ps1"):
+            return
+
+        return f(*args, **kwargs)
+
+    return wrapped
 
 
 def make_figure(fig_name: str = "interactive", *args, **kwargs):
@@ -94,19 +106,21 @@ def write_meta(path, **kwargs):
         .strip()
     )
 
-    frame = inspect.stack()[1]
+    frame = inspect.stack()[3]
     module = inspect.getmodule(frame[0])
     filename = str(
         pathlib.Path(module.__file__).relative_to(project_dir)  # type: ignore
         if module
         else "<unknown>"
     )
+    function = frame.function
 
     outpath = f"{path}.meta.yaml"
     with open(outpath, "w") as f:
         yaml.dump(
             dict(
                 source=filename,
+                function=function,
                 change_id=change_id,
                 commit_id=commit_id,
                 description=description.strip(),
@@ -119,19 +133,21 @@ def write_meta(path, **kwargs):
     print(f"Metadata written to {outpath}")
 
 
-def save_figure(fig, name, *args, **kwargs):
+@noop_if_interactive
+def save_figure(fig, name, extra_meta=None, *args, **kwargs):
     dir = pathlib.Path(f"./figs/")
     dir.mkdir(exist_ok=True)
     fig.tight_layout()
 
-    write_meta(f"./figs/{name}.pdf", name=name)
+    write_meta(f"./figs/{name}.pdf", name=name, extra_meta=extra_meta)
 
     plt.savefig(f"./figs/{name}.pdf", *args, **kwargs)
     plt.savefig(f"./figs/{name}.png", *args, dpi=600, **kwargs)
 
-    print(f"Figure saved as {name}.pdf")
+    print(f"Figure saved as ./figs/{name}.pdf")
 
 
+@noop_if_interactive
 def quick_save_pickle(obj, name, **kwargs):
     """Quickly save an object to a pickle file with metadata."""
     import pickle

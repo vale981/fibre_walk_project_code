@@ -1,5 +1,13 @@
 from plot_utils import *
-from .system import Params, RuntimeParams, solve, coupled_mode_indices, mode_name
+from .system import (
+    Params,
+    RuntimeParams,
+    solve,
+    coupled_mode_indices,
+    mode_name,
+    uncoupled_mode_indices,
+    correct_for_decay,
+)
 from .analysis import fourier_transform
 import matplotlib.pyplot as plt
 import numpy as np
@@ -114,7 +122,15 @@ def clone_color_or_default(lines: dict, mode: int):
     return line.get_color()
 
 
-def plot_rotating_modes(ax, solution, params, plot_uncoupled=False, clone_colors=None):
+def plot_rotating_modes(
+    ax,
+    solution,
+    params,
+    plot_uncoupled=False,
+    clone_colors=None,
+    only_A_site=False,
+    correct_for_decay=False,
+):
     """Plot the amplitude of the modes in the rotating frame.
 
     :param ax: The axis to plot on.
@@ -123,63 +139,74 @@ def plot_rotating_modes(ax, solution, params, plot_uncoupled=False, clone_colors
     :param plot_uncoupled: Whether to plot the uncoupled modes.
     :param clone_colors: A dictionary of lines indexed by mode index
         from which to clone colors from.
+    :param only_A_site: Whether to plot only the A site modes.
+    :param correct_for_decay: Whether to correct for decay by
+        multiplying with an exponential.
     """
 
     lines = dict()
     if clone_colors is None:
         clone_colors = dict()
 
-    for mode in coupled_mode_indices(params):
+    h = solution.y
+    if correct_for_decay:
+        h = correct_for_decay(solution, params)
+
+    for mode in [1] if only_A_site else coupled_mode_indices(params):
         lines[mode] = ax.plot(
             solution.t,
-            np.abs(solution.y[mode]),
+            np.abs(h[mode]),
             label=mode_name(mode) + (" (rwa)" if params.rwa else ""),
             color=clone_color_or_default(clone_colors, mode),
             linestyle="dashdot" if params.rwa else "-",
         )[0]
 
-    if plot_uncoupled:
+    if plot_uncoupled and not only_A_site:
         for mode in uncoupled_mode_indices(params):
             lines[mode] = ax.plot(
                 solution.t,
-                np.abs(solution.y[mode]),
+                np.abs(h[mode]),
                 label=mode_name(mode) + (" (rwa)" if params.rwa else ""),
                 color=clone_color_or_default(clone_colors, mode),
                 linestyle="dotted" if params.rwa else "--",
             )[0]
 
-    ax.legend()
+    # ax.legend()
     ax.set_xlabel("Time (1/Ω)")
     ax.set_ylabel("Amplitude")
-    ax.set_title("Mode Amplitudes in the Rotating Frame")
+    ax.set_title(
+        "Mode Amplitudes in the Rotating Frame"
+        + (" (corrected)" if correct_for_decay else "")
+    )
 
     return lines
 
 
-def plot_rwa_vs_real_amplitudes(ax, t, params, **kwargs):
+def plot_rwa_vs_real_amplitudes(ax, solution_no_rwa, solution_rwa, params, **kwargs):
     """Plot the amplitudes of the modes of the system ``params`` in
     the rotating frame with and without the RWA onto ``ax``.
 
     The keyword arguments are passed to :any:`plot_rotating_modes`.
 
     :param ax: The axis to plot on.
-    :param t: The time axis.
+    :param non_rwa: The solution without the rwa.
+    :param rwa: The solution with the rwa.
     :param params: The system parameters.
     :param kwargs: Additional keyword arguments to pass to
         :any:`plot_rotating_modes`.
 
-    :returns: A tuple of the solutions without and with the rwa and
-              the dictionaries of the lines plotted indexed by mode
-              index.
+    :returns: A tuple of the line dictionaries for the non-rwa and rwa solutions.
     """
+
+    original_rwa = params.rwa
     params.rwa = False
-    solution_no_rwa = solve(t, params)
     no_rwa_lines = plot_rotating_modes(ax, solution_no_rwa, params, **kwargs)
 
     params.rwa = True
-    solution_rwa = solve(t, params)
     rwa_lines = plot_rotating_modes(
         ax, solution_rwa, params, **kwargs, clone_colors=no_rwa_lines
     )
 
-    return solution_no_rwa, solution_rwa, no_rwa_lines, rwa_lines
+    params.rwa = original_rwa
+
+    return no_rwa_lines, rwa_lines

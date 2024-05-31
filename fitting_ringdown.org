@@ -1,38 +1,10 @@
 :PROPERTIES:
 :ID:       d7630955-6ca9-4de7-9770-2d50d4847bcd
 :END:
-#+title: Fitting Ringdown
+#+title: Python Code for the Fibre Loop Experiment
 
-* Fitting transients
-- one can solve the equation of motion for when a mode is in the
-  steady state and the laser is suddenly switched. one obtains a
-  decaying oscillation which can be fitted to the data.
-- this works ok, when the system /was/ in the steady state before the jump
-- see [[file:scripts/transients_without_amplification.py]]
-- we obtain \(γ\approx\SI{2.2}{\kilo\hertz}\) but this can vary a lot
-- the detuning frequency seems to be completely off
+This is the code for the experimental side of [[id:bbd22b2d-4fcd-4ea9-9db7-8d599511a815][Simulation of Open
+Systems with Fiber Loops]].
 
-* Failure of the steady state
-
-On the right peak on can see that there might be something fish going
-on. This is ~data/24_05_24/nice_transient2~.
-[[file:figures/non_steady.png]]
-
-* Weird Oscillations                                                 :ATTACH:
-- when turning on the amp while the laser is running we get some
-  oscillations at \(\sim \SI{40}{\kilo\hertz}\) which is a period of
-  \(\SI{25}{\micro\second}\). this is 500 times roundrip time :(). I
-  thought it might be a wave packet traveling around the loop, i.e
-  multiple modes together...
-
-[[attachment:osci_closeup.png][osci_closeup.png]]
-[[attachment:osci_far.png][osci_far.png]]
-[[attachment:cleaned.png][cleaned.png]]
-- it isn't close to the fsr though...
-- fitting a sine to that gives pretty much the same, as does an fft
-  [[attachment:cleaned_fit.png][cleaned_fit.png]]
-
-- it is pretty constant over all steps in [[file:data/09_05_24/Nicely_hybridised_2 2024,05,09, 15h57min00sec/][data]] as can be ascertained
-  from [[file:scripts/weird_oscillations.py][this script]]
-- these are also present w/o the amp cutout!
-[[attachment:osci_without.png][osci_without.png]]
+It contains some analysis code which is discussed in separate notes
+and a partial re-implementation of the [[id:c45097d2-2599-426d-82db-6ecfb5207151][Julia Code Project for the Non-Markovian Quantum Walk in Fiber Loops]].

@@ -18,13 +18,13 @@ class Params:
     complement of modes.
     """
 
-    Ω: float = 1
+    Ω: float = 13
     """Free spectral range of the system in *frequency units*."""
 
     δ: float = 1 / 4
     """Mode splitting in units of :any:`Ω`."""
 
-    η: float = 0.1
+    η: float = 0.5
     """Decay rate :math:`\eta/2` of the system in angular frequency units."""
 
     g_0: float = 0.01
@@ -61,6 +61,10 @@ class Params:
     """Whether to use a flat distribution of bath energies."""
 
     initial_state: np.ndarray | None = None
+    """The initial state of the system."""
+
+    correct_lamb_shift: bool = True
+    """Whether to correct for the Lamb shift by tweaking the detuning."""
 
     def __post_init__(self):
         if self.N_couplings > self.N:
@@ -81,7 +85,7 @@ class Params:
         Returns the number of lifetimes of the system that correspond to
         `n` cycles.
         """
-        return n / self.η
+        return 2 * n / self.η
 
     @property
     def rabi_splitting(self):
@@ -102,8 +106,13 @@ class RuntimeParams:
             * params.Ω
             * np.concatenate([[-1 * params.δ, params.δ], np.arange(1, params.N + 1)])
         )
+
         decay_rates = -1j * np.repeat(params.η / 2, params.N + 2)
         Ωs = freqs + decay_rates
+
+        self.drive_frequencies, self.detunings, self.drive_amplitudes = (
+            drive_frequencies_and_amplitudes(params)
+        )  # linear frequencies!
 
         self.Ωs = Ωs
         self.diag_energies = (
@@ -112,17 +121,14 @@ class RuntimeParams:
             * np.concatenate(
                 [
                     [0, 0],
-                    drive_detunings(params),
+                    self.detunings,
                     np.zeros(params.N - params.N_couplings),
                 ]
             )
             + decay_rates
         )
-        self.detuned_Ωs = freqs - self.diag_energies.real
 
-        self.drive_frequencies, self.drive_amplitudes = (
-            drive_frequencies_and_amplitudes(params)
-        )
+        self.detuned_Ωs = freqs - self.diag_energies.real
 
     def __repr__(self):
         return f"{self.__class__.__name__}(Ωs={self.Ωs}, drive_frequencies={self.drive_frequencies}, drive_amplitudes={self.drive_amplitudes})"
@@ -154,14 +160,22 @@ def eom_drive(t, x, ds, ωs, rwa, detuned_Ωs):
     :param ωs: linear drive frequencies
     """
 
+    ds = 2 * np.pi * ds
     if rwa:
+        coupled_indices = 2 + len(ds)
         det_matrix = np.zeros((len(x), len(x)))
-        det_matrix[1, 2:] = ds / 2
-        det_matrix[2:, 1] = ds / 2
+        det_matrix[1, 2:coupled_indices] = ds / 2
+        det_matrix[2:coupled_indices, 1] = ds / 2
         driven_x = det_matrix @ x
     else:
-        freqs = np.exp(-1j * detuned_Ωs * t)
-        det_matrix = np.outer(np.conj(freqs), freqs)
+        det_matrix = detuned_Ωs[:, None] - detuned_Ωs[None, :]
+        # test = abs(det_matrix.copy())
+        # test[test < 1e-10] = np.inf
+        # print(np.min(test))
+        # print(np.argmin(test, keepdims=True))
+
+        det_matrix = np.exp(-1j * det_matrix * t)
+
         driven_x = np.sum(ds * np.sin(2 * np.pi * ωs * t)) * (det_matrix @ x)
 
     return driven_x
@@ -283,8 +297,12 @@ def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     Calculate the output signal when mixing with laser light of
     frequency `laser_detuning`.
     """
+
+    runtime = RuntimeParams(params)
+    rotating = amplitudes * np.exp(-1j * runtime.detuned_Ωs * t)
+
     return (
-        np.sum(amplitudes, axis=0)
+        np.sum(rotating, axis=0)
         * np.exp(
             1j
             * (laser_frequency(params, t) + 2 * np.pi * params.measurement_detuning)
@@ -305,24 +323,24 @@ def ohmic_spectral_density(ω: np.ndarray, α: float) -> np.ndarray:
     return ω**α
 
 
-def drive_detunings(params: Params) -> np.ndarray:
-    """Return the drive detunings of the bath modes in frequency units."""
+def lamb_shift(amplitudes, Δs):
+    return np.sum(amplitudes**2 / Δs)
+
+
+def drive_frequencies_and_amplitudes(
+    params: Params,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Return the linear frequencies and amplitudes of the drives based
+    on the ``params``.
+    """
 
     if params.flat_energies:
         Δs = np.repeat(params.ω_c, params.N_couplings)
     else:
         Δs = bath_energies(params.N_couplings, params.ω_c)
 
-    return Δs * params.Ω
-
-
-def drive_frequencies_and_amplitudes(params: Params) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Return the linear frequencies and amplitudes of the drives based
-    on the ``params``.
-    """
-
-    Δs = drive_detunings(params)
+    Δs *= params.Ω
 
     amplitudes = ohmic_spectral_density(
         bath_energies(params.N_couplings, 1),
@@ -330,10 +348,13 @@ def drive_frequencies_and_amplitudes(params: Params) -> tuple[np.ndarray, np.nda
     )
 
     amplitudes /= np.sum(amplitudes)
-    amplitudes = 2 * np.pi * params.Ω * params.g_0 * np.sqrt(amplitudes)
+    amplitudes = params.Ω * params.g_0 * np.sqrt(amplitudes)
+
+    if not params.flat_energies and params.correct_lamb_shift:
+        Δs -= np.sum(amplitudes**2 / Δs)
 
     ωs = ((np.arange(1, params.N_couplings + 1) - params.δ) * params.Ω) - Δs
-    return ωs, amplitudes
+    return ωs, Δs, amplitudes
 
 
 def mode_name(mode: int):
@@ -378,3 +399,41 @@ def coupled_mode_indices(params: Params):
 def dimension(params: Params):
     """Return the dimension of the system."""
     return params.N + 2
+
+
+def recurrence_time(params: Params):
+    """Return the recurrence time of the system."""
+    return params.N_couplings / (params.Ω * params.ω_c)
+
+
+def solve_nonrwa_rwa(t: np.ndarray, params: Params, **kwargs):
+    """
+    Solve the system in the non-RWA and RWA cases and return the results.
+    The keyword arguments are passed to :any:`solve`.
+
+    :param t: time array
+    :param params: system parameters
+
+    :returns: non-RWA and RWA solutions
+    """
+    initial_rwa = params.rwa
+
+    params.rwa = False
+    nonrwa = solve(t, params, **kwargs)
+    rwa_params = params
+    rwa_params.rwa = True
+    rwa = solve(t, rwa_params, **kwargs)
+
+    params.rwa = initial_rwa
+    return nonrwa, rwa
+
+
+def correct_for_decay(solution, params):
+    """Correct the ``solution`` for decay.
+
+    :param solution: The solution from :any:`solve_ivp` to correct.
+    :param params: The system parameters
+
+    :returns: The corrected solution amplitudes.
+    """
+    return solution.y * np.exp(params.η / 2 * solution.t[None, :])

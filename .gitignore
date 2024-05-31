@@ -10,3 +10,5 @@ devenv.local.nix
 
 data
 __pycache__
+
+*.pkl

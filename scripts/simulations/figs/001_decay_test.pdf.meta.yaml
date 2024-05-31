@@ -1,0 +1,166 @@
+change_id: snsvmqorzwxnvuvwsrsxqqmukqyspwkw
+commit_id: 6ec1859dba940a2ada3aefedc5adea2cb436339f
+description: 'RESULTS: make some nice demos'
+extra_meta:
+  Ns:
+  - 5
+  - 10
+  - 20
+  params:
+    ? !!python/tuple
+    - 5
+    - 0
+    : &id001 !!python/object:rabifun.system.Params
+      N: 12
+      N_couplings: 5
+      correct_lamb_shift: true
+      drive_off_time: null
+      dynamic_detunting: &id002 !!python/tuple
+      - 0
+      - 0
+      flat_energies: false
+      g_0: 0.016666666666666666
+      initial_state: !!python/object/apply:numpy.core.multiarray._reconstruct
+        args:
+        - &id003 !!python/name:numpy.ndarray ''
+        - !!python/tuple
+          - 0
+        - !!binary |
+          Yg==
+        state: !!python/tuple
+        - 1
+        - !!python/tuple
+          - 14
+        - &id004 !!python/object/apply:numpy.dtype
+          args:
+          - c16
+          - false
+          - true
+          state: !!python/tuple
+          - 3
+          - <
+          - null
+          - null
+          - null
+          - -1
+          - -1
+          - 0
+        - false
+        - !!binary |
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      laser_detuning: 0
+      laser_off_time: 0.0
+      measurement_detuning: 0
+      rwa: false
+      "\u03A9": 13
+      "\u03B1": 2
+      "\u03B4": 0.25
+      "\u03B7": 0.5
+      "\u03C9_c": 0.05
+    ? !!python/tuple
+    - 5
+    - 2
+    : *id001
+    ? !!python/tuple
+    - 10
+    - 0
+    : &id005 !!python/object:rabifun.system.Params
+      N: 22
+      N_couplings: 10
+      correct_lamb_shift: true
+      drive_off_time: null
+      dynamic_detunting: *id002
+      flat_energies: false
+      g_0: 0.016666666666666666
+      initial_state: !!python/object/apply:numpy.core.multiarray._reconstruct
+        args:
+        - *id003
+        - !!python/tuple
+          - 0
+        - !!binary |
+          Yg==
+        state: !!python/tuple
+        - 1
+        - !!python/tuple
+          - 24
+        - *id004
+        - false
+        - !!binary |
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      laser_detuning: 0
+      laser_off_time: 0.0
+      measurement_detuning: 0
+      rwa: false
+      "\u03A9": 13
+      "\u03B1": 2
+      "\u03B4": 0.25
+      "\u03B7": 0.5
+      "\u03C9_c": 0.05
+    ? !!python/tuple
+    - 10
+    - 2
+    : *id005
+    ? !!python/tuple
+    - 20
+    - 0
+    : &id006 !!python/object:rabifun.system.Params
+      N: 42
+      N_couplings: 20
+      correct_lamb_shift: true
+      drive_off_time: null
+      dynamic_detunting: *id002
+      flat_energies: false
+      g_0: 0.016666666666666666
+      initial_state: !!python/object/apply:numpy.core.multiarray._reconstruct
+        args:
+        - *id003
+        - !!python/tuple
+          - 0
+        - !!binary |
+          Yg==
+        state: !!python/tuple
+        - 1
+        - !!python/tuple
+          - 44
+        - *id004
+        - false
+        - !!binary |
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      laser_detuning: 0
+      laser_off_time: 0.0
+      measurement_detuning: 0
+      rwa: false
+      "\u03A9": 13
+      "\u03B1": 2
+      "\u03B4": 0.25
+      "\u03B7": 0.5
+      "\u03C9_c": 0.05
+    ? !!python/tuple
+    - 20
+    - 2
+    : *id006
+function: decay_rwa_analysis
+name: 001_decay_test
+refers_to: ./figs/001_decay_test.pdf
+source: scripts/simulations/001_full_system_rwa_analysis.py

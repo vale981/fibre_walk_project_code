@@ -5,13 +5,17 @@ import itertools
 # %% interactive
 
 
-def make_params(ω_c=0.1, N=10):
+def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3):
+    """
+    Make a set of parameters for the system with the current
+    best-known settings.
+    """
     return Params(
         η=0.5,
         Ω=13,
         δ=1 / 4,
         ω_c=ω_c,
-        g_0=ω_c / 5,
+        g_0=ω_c * gbar,
         laser_detuning=0,
         N=2 * N + 2,
         N_couplings=N,
@@ -25,13 +29,25 @@ def make_params(ω_c=0.1, N=10):
 
 
 def decay_rwa_analysis():
-    """This is couples to a linear combination of bathe modes in stead of to a single one, but the result is pretty much the same."""
+    """
+    Plot the population of the A site for different values of N and α,
+    with and without the RWA.
 
-    ω_c = 0.1
+    The parameters are chosen corresponding to the current best-known
+    values from the experiment.
 
-    Ns = [1, 4]  # [5, 10, 20]
+    The cutoff frequency is chosen to be 0.05Ω (which is the strongest
+    that still kinda works.).
 
-    fig = make_figure("decay_test")
+    Surprisingly the whole thing works for a gbar = 1/3 instead of 1/5
+    and with much fewer modes.
+    """
+
+    ω_c = 0.05
+    Ns = [5, 10, 20]
+    gbar = 1 / 3
+
+    fig = make_figure("decay_test", figsize=(15, len(Ns) * 3))
     ax_ns = fig.subplots(len(Ns), 2)
 
     have_legend = False
@@ -40,7 +56,7 @@ def decay_rwa_analysis():
     param_dict = {}
 
     for i, N in enumerate(Ns):
-        params = make_params(ω_c=ω_c, N=N)
+        params = make_params(ω_c=ω_c, N=N, gbar=gbar)
         params.laser_off_time = params.lifetimes(0)
         params.initial_state = make_zero_intial_state(params)
         params.initial_state[1] = 1
@@ -90,13 +106,13 @@ def decay_rwa_analysis():
 
     fig.tight_layout()
     fig.suptitle(
-        f"Decay test for η={params.η}MHz, Ω={params.Ω}MHz, δ/Ω={params.δ}, ω_c/Ω={params.ω_c}"
+        f"Decay test for η={params.η}MHz, Ω={params.Ω}MHz, δ/Ω={params.δ}, ω_c/Ω={params.ω_c}, g_0/ω_c={params.g_0/params.ω_c:.2f}"
     )
 
-    save_figure(fig, "decay_test", extra_meta=dict(params=param_dict, Ns=Ns))
+    save_figure(fig, "001_decay_test", extra_meta=dict(params=param_dict, Ns=Ns))
     quick_save_pickle(
         dict(results=results, params=param_dict, Ns=Ns),
-        "decay_test",
+        "001_decay_test",
         param_dict=param_dict,
     )
 
