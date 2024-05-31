@@ -1,24 +1,40 @@
-change_id: snsvmqorzwxnvuvwsrsxqqmukqyspwkw
-commit_id: 049b547f220987c6bb63165a9a020b20b1c4377b
-description: 'RESULTS: make some nice demos'
+change_id: wykwpsvmtrzvwtunotxnzokztpyrnsrx
+commit_id: e4399f86a81e8dc0fbbe24226b948db60bd83807
+description: ''
 function: decay_rwa_analysis
 param_dict:
   ? !!python/tuple
   - 5
-  - 0
-  : &id001 !!python/object:rabifun.system.Params
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - &id001 !!python/object/apply:numpy.dtype
+      args:
+      - f8
+      - false
+      - true
+      state: !!python/tuple
+      - 3
+      - <
+      - null
+      - null
+      - null
+      - -1
+      - -1
+      - 0
+    - !!binary |
+      AAAAAAAAAAA=
+  : &id002 !!python/object:rabifun.system.Params
     N: 12
     N_couplings: 5
-    correct_lamb_shift: true
+    correct_lamb_shift: 2
     drive_off_time: null
-    dynamic_detunting: &id002 !!python/tuple
+    dynamic_detunting: &id003 !!python/tuple
     - 0
     - 0
     flat_energies: false
-    g_0: 0.016666666666666666
+    g_0: 0.008333333333333333
     initial_state: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
-      - &id003 !!python/name:numpy.ndarray ''
+      - &id004 !!python/name:numpy.ndarray ''
       - !!python/tuple
         - 0
       - !!binary |
@@ -27,7 +43,7 @@ param_dict:
       - 1
       - !!python/tuple
         - 14
-      - &id004 !!python/object/apply:numpy.dtype
+      - &id005 !!python/object/apply:numpy.dtype
         args:
         - c16
         - false
@@ -48,32 +64,62 @@ param_dict:
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
     laser_detuning: 0
-    laser_off_time: 0.0
+    laser_off_time: 0
     measurement_detuning: 0
     rwa: false
     "\u03A9": 13
-    "\u03B1": 2
+    "\u03B1": !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
     "\u03B4": 0.25
     "\u03B7": 0.5
     "\u03C9_c": 0.05
   ? !!python/tuple
   - 5
-  - 2
-  : *id001
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA4D8=
+  : *id002
+  ? !!python/tuple
+  - 5
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA8D8=
+  : *id002
+  ? !!python/tuple
+  - 5
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+D8=
+  : *id002
+  ? !!python/tuple
+  - 5
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
+  : *id002
   ? !!python/tuple
   - 10
-  - 0
-  : &id005 !!python/object:rabifun.system.Params
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAAA=
+  : &id006 !!python/object:rabifun.system.Params
     N: 22
     N_couplings: 10
-    correct_lamb_shift: true
+    correct_lamb_shift: 2
     drive_off_time: null
-    dynamic_detunting: *id002
+    dynamic_detunting: *id003
     flat_energies: false
-    g_0: 0.016666666666666666
+    g_0: 0.008333333333333333
     initial_state: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
-      - *id003
+      - *id004
       - !!python/tuple
         - 0
       - !!binary |
@@ -82,7 +128,7 @@ param_dict:
       - 1
       - !!python/tuple
         - 24
-      - *id004
+      - *id005
       - false
       - !!binary |
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -93,32 +139,62 @@ param_dict:
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     laser_detuning: 0
-    laser_off_time: 0.0
+    laser_off_time: 0
     measurement_detuning: 0
     rwa: false
     "\u03A9": 13
-    "\u03B1": 2
+    "\u03B1": !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
     "\u03B4": 0.25
     "\u03B7": 0.5
     "\u03C9_c": 0.05
   ? !!python/tuple
   - 10
-  - 2
-  : *id005
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA4D8=
+  : *id006
+  ? !!python/tuple
+  - 10
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA8D8=
+  : *id006
+  ? !!python/tuple
+  - 10
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+D8=
+  : *id006
+  ? !!python/tuple
+  - 10
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
+  : *id006
   ? !!python/tuple
   - 20
-  - 0
-  : &id006 !!python/object:rabifun.system.Params
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAAA=
+  : &id007 !!python/object:rabifun.system.Params
     N: 42
     N_couplings: 20
-    correct_lamb_shift: true
+    correct_lamb_shift: 2
     drive_off_time: null
-    dynamic_detunting: *id002
+    dynamic_detunting: *id003
     flat_energies: false
-    g_0: 0.016666666666666666
+    g_0: 0.008333333333333333
     initial_state: !!python/object/apply:numpy.core.multiarray._reconstruct
       args:
-      - *id003
+      - *id004
       - !!python/tuple
         - 0
       - !!binary |
@@ -127,7 +203,7 @@ param_dict:
       - 1
       - !!python/tuple
         - 44
-      - *id004
+      - *id005
       - false
       - !!binary |
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -144,17 +220,44 @@ param_dict:
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAA=
     laser_detuning: 0
-    laser_off_time: 0.0
+    laser_off_time: 0
     measurement_detuning: 0
     rwa: false
     "\u03A9": 13
-    "\u03B1": 2
+    "\u03B1": !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
     "\u03B4": 0.25
     "\u03B7": 0.5
     "\u03C9_c": 0.05
   ? !!python/tuple
   - 20
-  - 2
-  : *id006
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA4D8=
+  : *id007
+  ? !!python/tuple
+  - 20
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA8D8=
+  : *id007
+  ? !!python/tuple
+  - 20
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAA+D8=
+  : *id007
+  ? !!python/tuple
+  - 20
+  - !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AAAAAAAAAEA=
+  : *id007
 refers_to: outputs/001_decay_test.pkl
 source: scripts/simulations/001_full_system_rwa_analysis.py

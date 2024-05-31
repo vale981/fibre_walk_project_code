@@ -5,7 +5,7 @@ import itertools
 # %% interactive
 
 
-def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3):
+def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3, compensate=2):
     """
     Make a set of parameters for the system with the current
     best-known settings.
@@ -23,7 +23,7 @@ def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3):
         α=0,
         rwa=False,
         flat_energies=False,
-        correct_lamb_shift=True,
+        correct_lamb_shift=compensate,
         laser_off_time=0,
     )
 
@@ -45,7 +45,7 @@ def decay_rwa_analysis():
 
     ω_c = 0.05
     Ns = [5, 10, 20]
-    gbar = 1 / 3
+    gbar = 1 / 3 / 2
 
     fig = make_figure("decay_test", figsize=(15, len(Ns) * 3))
     ax_ns = fig.subplots(len(Ns), 2)
@@ -57,7 +57,7 @@ def decay_rwa_analysis():
 
     for i, N in enumerate(Ns):
         params = make_params(ω_c=ω_c, N=N, gbar=gbar)
-        params.laser_off_time = params.lifetimes(0)
+        params.laser_off_time = 0
         params.initial_state = make_zero_intial_state(params)
         params.initial_state[1] = 1
 
@@ -65,9 +65,9 @@ def decay_rwa_analysis():
 
         ax_real, ax_corrected = ax_ns[i]
 
-        t = time_axis(params, recurrence_time(params) * 1.1 / params.lifetimes(1), 0.1)
+        t = time_axis(params, recurrences=1.1, resolution=0.1)
 
-        for α in [0, 2]:
+        for α in np.linspace(0, 2, 5):
             params.α = α
             sol_nonrwa, sol_rwa = solve_nonrwa_rwa(t, params)
 
@@ -75,6 +75,7 @@ def decay_rwa_analysis():
             results[(N, α, False)] = sol_nonrwa
             param_dict[(N, α)] = params
 
+            color = None
             for correct, rwa in itertools.product([True, False], [True, False]):
                 sol = sol_rwa if rwa else sol_nonrwa
                 ax = ax_corrected if correct else ax_real
@@ -82,14 +83,15 @@ def decay_rwa_analysis():
                 if correct:
                     y = correct_for_decay(sol, params)
 
-                ax.plot(
+                l = ax.plot(
                     sol.t,
                     np.abs(y[a_site]) ** 2,
                     label=f"{'rwa' if rwa else ''} α={α}",
                     linestyle="--" if rwa else "-",
                     alpha=0.5 if rwa else 1,
-                    color=f"C{α}",
+                    color=color,
                 )
+                color = l[0].get_color()
 
         ax_real.set_title(f"Real, N={N}")
         ax_corrected.set_title(f"Decay Removed, N={N}")

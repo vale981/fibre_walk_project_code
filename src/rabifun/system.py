@@ -63,7 +63,7 @@ class Params:
     initial_state: np.ndarray | None = None
     """The initial state of the system."""
 
-    correct_lamb_shift: bool = True
+    correct_lamb_shift: float = 1
     """Whether to correct for the Lamb shift by tweaking the detuning."""
 
     def __post_init__(self):
@@ -93,7 +93,7 @@ class Params:
         if not self.flat_energies:
             raise ValueError("Rabi splitting is only defined for flat energies.")
 
-        return np.sqrt((self.Ω * self.g_0) ** 2 + (self.ω_c * self.Ω) ** 2)
+        return np.sqrt((self.Ω * self.g_0 * 2) ** 2 + (self.ω_c * self.Ω) ** 2)
 
 
 class RuntimeParams:
@@ -110,12 +110,14 @@ class RuntimeParams:
         decay_rates = -1j * np.repeat(params.η / 2, params.N + 2)
         Ωs = freqs + decay_rates
 
-        self.drive_frequencies, self.detunings, self.drive_amplitudes = (
+        self.drive_frequencies, self.detunings, self.g = (
             drive_frequencies_and_amplitudes(params)
         )  # linear frequencies!
 
+        self.g *= 2 * np.pi
         self.Ωs = Ωs
-        self.diag_energies = (
+        self.bath_ε = 2 * np.pi * self.detunings - 1j * params.η / 2
+        self.ε = (
             2
             * np.pi
             * np.concatenate(
@@ -128,13 +130,18 @@ class RuntimeParams:
             + decay_rates
         )
 
-        self.detuned_Ωs = freqs - self.diag_energies.real
+        self.detuned_Ωs = freqs - self.ε.real
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(Ωs={self.Ωs}, drive_frequencies={self.drive_frequencies}, drive_amplitudes={self.drive_amplitudes})"
+        return f"{self.__class__.__name__}(Ωs={self.Ωs}, drive_frequencies={self.drive_frequencies}, drive_amplitudes={self.g})"
 
 
-def time_axis(params: Params, lifetimes: float, resolution: float = 1):
+def time_axis(
+    params: Params,
+    lifetimes: float | None = None,
+    recurrences: float | None = None,
+    resolution: float = 1,
+):
     """Generate a time axis for the simulation.
 
     :param params: system parameters
@@ -146,9 +153,15 @@ def time_axis(params: Params, lifetimes: float, resolution: float = 1):
         smaller value yields more points in the time axis.
     """
 
-    return np.arange(
-        0, params.lifetimes(lifetimes), resolution * np.pi / (params.Ω * params.N)
-    )
+    tmax = 0
+    if lifetimes is not None:
+        tmax = params.lifetimes(lifetimes)
+    elif recurrences is not None:
+        tmax = recurrence_time(params) * recurrences
+    else:
+        raise ValueError("Either lifetimes or recurrences must be set.")
+
+    return np.arange(0, tmax, resolution * np.pi / (params.Ω * params.N))
 
 
 def eom_drive(t, x, ds, ωs, rwa, detuned_Ωs):
@@ -160,12 +173,11 @@ def eom_drive(t, x, ds, ωs, rwa, detuned_Ωs):
     :param ωs: linear drive frequencies
     """
 
-    ds = 2 * np.pi * ds
     if rwa:
         coupled_indices = 2 + len(ds)
         det_matrix = np.zeros((len(x), len(x)))
-        det_matrix[1, 2:coupled_indices] = ds / 2
-        det_matrix[2:coupled_indices, 1] = ds / 2
+        det_matrix[1, 2:coupled_indices] = ds
+        det_matrix[2:coupled_indices, 1] = ds
         driven_x = det_matrix @ x
     else:
         det_matrix = detuned_Ωs[:, None] - detuned_Ωs[None, :]
@@ -176,7 +188,7 @@ def eom_drive(t, x, ds, ωs, rwa, detuned_Ωs):
 
         det_matrix = np.exp(-1j * det_matrix * t)
 
-        driven_x = np.sum(ds * np.sin(2 * np.pi * ωs * t)) * (det_matrix @ x)
+        driven_x = np.sum(2 * ds * np.sin(2 * np.pi * ωs * t)) * (det_matrix @ x)
 
     return driven_x
 
@@ -199,7 +211,7 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
     """The right hand side of the equation of motion."""
 
     def rhs(t, x):
-        differential = runtime_params.diag_energies * x
+        differential = runtime_params.ε * x
 
         if params.rwa:
             x[0] = 0
@@ -209,7 +221,7 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
             differential += eom_drive(
                 t,
                 x,
-                runtime_params.drive_amplitudes,
+                runtime_params.g,
                 runtime_params.drive_frequencies,
                 params.rwa,
                 runtime_params.detuned_Ωs,
@@ -266,7 +278,7 @@ def solve(t: np.ndarray, params: Params, **kwargs):
         (np.min(t), np.max(t)),
         initial,
         vectorized=False,
-        # max_step=2 * np.pi / (params.Ω * params.N_couplings),
+        max_step=2 * np.pi / (params.Ω * params.N),
         t_eval=t,
         method="DOP853",
         atol=1e-7,
@@ -350,8 +362,9 @@ def drive_frequencies_and_amplitudes(
     amplitudes /= np.sum(amplitudes)
     amplitudes = params.Ω * params.g_0 * np.sqrt(amplitudes)
 
+    # FIXME: this is twice too big
     if not params.flat_energies and params.correct_lamb_shift:
-        Δs -= np.sum(amplitudes**2 / Δs)
+        Δs -= np.sum(amplitudes**2 / Δs) * params.correct_lamb_shift**2
 
     ωs = ((np.arange(1, params.N_couplings + 1) - params.δ) * params.Ω) - Δs
     return ωs, Δs, amplitudes
