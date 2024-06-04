@@ -43,9 +43,9 @@ def decay_rwa_analysis():
     and with much fewer modes.
     """
 
-    ω_c = 0.05
-    Ns = [5, 10, 20]
-    gbar = 1 / 3 / 2
+    ω_c = 0.1 / 2
+    Ns = [1, 5]
+    gbar = 1 / 4
 
     fig = make_figure("decay_test", figsize=(15, len(Ns) * 3))
     ax_ns = fig.subplots(len(Ns), 2)
@@ -56,7 +56,7 @@ def decay_rwa_analysis():
     param_dict = {}
 
     for i, N in enumerate(Ns):
-        params = make_params(ω_c=ω_c, N=N, gbar=gbar)
+        params = make_params(ω_c=ω_c, N=N, gbar=gbar, compensate=1)
         params.laser_off_time = 0
         params.initial_state = make_zero_intial_state(params)
         params.initial_state[1] = 1
@@ -67,7 +67,7 @@ def decay_rwa_analysis():
 
         t = time_axis(params, recurrences=1.1, resolution=0.1)
 
-        for α in np.linspace(0, 2, 5):
+        for α in np.linspace(0, 2, 3):
             params.α = α
             sol_nonrwa, sol_rwa = solve_nonrwa_rwa(t, params)
 

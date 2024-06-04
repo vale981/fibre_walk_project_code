@@ -38,16 +38,22 @@ def characteristic_poly(g: np.ndarray, ε: np.ndarray, η_A: float = 0):
     return poly
 
 
-def hamiltonian(g: np.ndarray, ε: np.ndarray, η_A: float = 0):
-    H = np.diag([-1j * η_A, *ε])
+def hamiltonian(g: np.ndarray, ε: np.ndarray, ε_A: float = 0, η_A: float = 0):
+    H = np.diag([ε_A - 1j * η_A, *ε])
     H[0, 1:] = g
     H[1:, 0] = np.conj(g)
     return H
 
 
-def a_site_population(t, ω, coeff):
+def a_site_population(t, ω, coeff, lower_cutoff=0):
     return (
-        np.abs(np.sum(coeff[None, :] * np.exp(-1j * ω[None, :] * t[:, None]), axis=1))
+        np.abs(
+            np.sum(
+                coeff[None, lower_cutoff:]
+                * np.exp(-1j * ω[None, lower_cutoff:] * t[:, None]),
+                axis=1,
+            )
+        )
         ** 2
     )
 
@@ -64,7 +70,7 @@ def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3):
         ω_c=ω_c,
         g_0=ω_c * gbar,
         laser_detuning=0,
-        N=2 * N + 2,
+        N=N,
         N_couplings=N,
         measurement_detuning=0,
         α=0,
@@ -76,29 +82,53 @@ def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3):
 
 
 def test():
-    params = make_params(N=10, gbar=1 / 3)
+    params = make_params(N=20, gbar=1 / 4)
     params.flat_energies = False
-    params.α = 0.0
-    params.correct_lamb_shift = True
+    params.α = 0
 
+    params.correct_lamb_shift = 1
     runtime = RuntimeParams(params)
-    t = time_axis(params, recurrences=1.5)
-    g = runtime.g / 2
+    t = time_axis(params, recurrences=1.1)
+    g = runtime.g
     ε = runtime.bath_ε
-    H = hamiltonian(g, ε.real, 0 * params.η / 2)
 
-    ω = np.linalg.eigvals(H)
-    M = np.linalg.eig(H).eigenvectors
+    H = hamiltonian(g, ε.real, ε_A=runtime.a_shift, η_A=0 * params.η / 2)
+
+    print(runtime.a_shift - ε[-1])
+    eig = np.linalg.eig(H)
+
+    ω = eig.eigenvalues
+
+    idx = np.argsort(ω.real)
+    ω = ω[idx]
+
+    M = np.linalg.eig(H).eigenvectors[:, idx]
+
     Minv = np.linalg.inv(M)
-    v0 = Minv[:, 0]
 
-    coeff = M[0, :] * v0.T
+    coeff = M[0, :] * Minv[:, 0]
+
+    f = make_figure()
+
+    U_A = np.abs(1 / (1 + np.sum((g / (ω[0] - ε.real)) ** 2))) ** 2
+    U_A_coeff = np.max(np.abs(coeff**2))
+    print(np.argmax(np.abs(coeff**2)))
     print(coeff)
+    ax_t, ax_e = f.subplots(1, 2)
+    ax_t.plot(t, a_site_population(t, ω, coeff, 0))
+    # ax_t.plot(t, U_A_coeff + .1 * np.sin(ω[0].real * t))
+    ax_t.set_ylim(0, 1.01)
+    ax_t.set_xlabel("Time [1/Ω]")
+    ax_t.set_ylabel(r"$ρ_A$")
 
-    # coeff /= np.abs(np.sum(coeff))
-    # coeff = coefficients(ω, g, ε)
+    # print((np.abs(1 / (1 + np.sum((g / ε) ** 2)))))
+    ax_t.axhline(U_A, color="green", linestyle="-.")
+    print(U_A)
+    ax_t.axhline(U_A_coeff, color="red", linestyle="--")
 
-    plt.cla()
-    plt.plot(t, a_site_population(t, ω, coeff))
-    plt.ylim(0, 1)
-    return ω
+    for ω_ in ω:
+        ax_e.axvline(ω_.real, color="blue", alpha=0.5)
+    ax_e.axvline(min(ω.real), color="black", linestyle="--")
+    ax_e.axvline(max(ω.real), color="black", linestyle="--")
+    ax_e.axvline(max(ε.real), color="green", linestyle="--")
+    ax_e.set_xlabel("Energy")
