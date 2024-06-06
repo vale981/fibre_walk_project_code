@@ -1,3 +1,4 @@
+from networkx import is_aperiodic
 from plot_utils import *
 from .system import (
     Params,
@@ -8,7 +9,7 @@ from .system import (
     uncoupled_mode_indices,
     correct_for_decay,
 )
-from .analysis import fourier_transform
+from .analysis import fourier_transform, RingdownPeakData, RingdownParams
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -210,3 +211,35 @@ def plot_rwa_vs_real_amplitudes(ax, solution_no_rwa, solution_rwa, params, **kwa
     params.rwa = original_rwa
 
     return no_rwa_lines, rwa_lines
+
+
+def plot_spectrum_and_peak_info(ax, peaks: RingdownPeakData, params: RingdownParams):
+    """Plot the fft spectrum with peaks.
+
+    :param ax: The axis to plot on.
+    :param peaks: The peak data.
+    :param params: The ringdown parameters.
+    """
+
+    ax.clear()
+    ax.plot(peaks.freq, peaks.normalized_power, label="FFT Power", color="C0")
+    ax.plot(
+        peaks.peak_freqs,
+        peaks.normalized_power[peaks.peaks],
+        "x",
+        label="Peaks",
+        color="C2",
+    )
+    ax.set_title("FFT Spectrum")
+    ax.set_xlabel("ω [linear]")
+    ax.set_ylabel("Power")
+    ax.set_ylim(0, 1.1)
+    ax.axvline(
+        params.fω_shift,
+        color="gray",
+        linestyle="--",
+        zorder=-10,
+        label="Frequency Shift",
+    )
+
+    ax.legend()
