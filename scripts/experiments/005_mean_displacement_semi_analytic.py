@@ -126,9 +126,9 @@ def test():
     print(U_A)
     ax_t.axhline(U_A_coeff, color="red", linestyle="--")
 
-    for ω_ in ω:
-        ax_e.axvline(ω_.real, color="blue", alpha=0.5)
-    ax_e.axvline(min(ω.real), color="black", linestyle="--")
-    ax_e.axvline(max(ω.real), color="black", linestyle="--")
-    ax_e.axvline(max(ε.real), color="green", linestyle="--")
+    # ax_e.axvline(min(ω.real), color="black", linestyle="--")
+    # ax_e.axvline(max(ω.real), color="black", linestyle="--")
+    # ax_e.axvline(max(ε.real), color="green", linestyle="--")
+    for ω_, c in zip(ω, coeff):
+        ax_e.vlines(ω_.real, 0, c, color="blue", alpha=0.5)
     ax_e.set_xlabel("Energy")
