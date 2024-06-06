@@ -24,7 +24,7 @@ def self_energy(ω, g, ε):
 def coefficients(ω, g, ε):
     coeff = 1 / (1 + self_energy(ω, g, ε))
 
-    return coeff / np.sum((coeff))
+    return coeff
 
 
 def characteristic_poly(g: np.ndarray, ε: np.ndarray, η_A: float = 0):
@@ -82,9 +82,10 @@ def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3):
 
 
 def test():
-    params = make_params(N=20, gbar=1 / 4)
+    params = make_params(N=30, gbar=1 / 4)
     params.flat_energies = False
-    params.α = 0
+    params.α = 2
+    params.η = 0
 
     params.correct_lamb_shift = 1
     runtime = RuntimeParams(params)
@@ -94,32 +95,32 @@ def test():
 
     H = hamiltonian(g, ε.real, ε_A=runtime.a_shift, η_A=0 * params.η / 2)
 
-    print(runtime.a_shift - ε[-1])
-    eig = np.linalg.eig(H)
-
-    ω = eig.eigenvalues
+    ω = np.linalg.eigvalsh(H)
 
     idx = np.argsort(ω.real)
     ω = ω[idx]
 
-    M = np.linalg.eig(H).eigenvectors[:, idx]
+    # M = np.linalg.eig(H).eigenvectors[:, idx]
 
-    Minv = np.linalg.inv(M)
+    # Minv = np.linalg.inv(M)
 
-    coeff = M[0, :] * Minv[:, 0]
+    # coeff = M[0, :] * Minv[:, 0]
+    # coeff = coeff[idx]
+    coeff = coefficients(ω, g, ε.real)
 
     f = make_figure()
 
     U_A = np.abs(1 / (1 + np.sum((g / (ω[0] - ε.real)) ** 2))) ** 2
     U_A_coeff = np.max(np.abs(coeff**2))
-    print(np.argmax(np.abs(coeff**2)))
-    print(coeff)
     ax_t, ax_e = f.subplots(1, 2)
     ax_t.plot(t, a_site_population(t, ω, coeff, 0))
     # ax_t.plot(t, U_A_coeff + .1 * np.sin(ω[0].real * t))
-    ax_t.set_ylim(0, 1.01)
+    # ax_t.set_ylim(0, 1.01)
     ax_t.set_xlabel("Time [1/Ω]")
     ax_t.set_ylabel(r"$ρ_A$")
+
+    ax_t.plot(t, np.exp(-np.sum(g**2) * t))
+    # ax_t.set_xscale("log")
 
     # print((np.abs(1 / (1 + np.sum((g / ε) ** 2)))))
     ax_t.axhline(U_A, color="green", linestyle="-.")
