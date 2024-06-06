@@ -38,13 +38,10 @@ def decay_rwa_analysis():
 
     The cutoff frequency is chosen to be 0.05Ω (which is the strongest
     that still kinda works.).
-
-    Surprisingly the whole thing works for a gbar = 1/3 instead of 1/5
-    and with much fewer modes.
     """
 
     ω_c = 0.1 / 2
-    Ns = [1, 5]
+    Ns = [5, 10, 20]
     gbar = 1 / 4
 
     fig = make_figure("decay_test", figsize=(15, len(Ns) * 3))
