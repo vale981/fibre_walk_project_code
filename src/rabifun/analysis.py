@@ -30,8 +30,6 @@ def fourier_transform(
         t = t[mask]
         signal = signal[mask]  # * scipy.signal.windows.hamming(len(t))
 
-        #
-
     freq = scipy.fft.rfftfreq(len(t), t[2] - t[1])
     fft = scipy.fft.rfft(signal, norm="forward", workers=os.cpu_count())
 
@@ -94,7 +92,7 @@ class RingdownParams:
     @property
     def low_cutoff(self) -> float:
         """The low cutoff frequency of the ringdown spectrum fft."""
-        return self.fω_shift - self.mode_window[0] * self.fΩ_guess
+        return max(self.fω_shift - self.mode_window[0] * self.fΩ_guess, 0)
 
     @property
     def high_cutoff(self) -> float:
@@ -204,7 +202,8 @@ def refine_peaks(peaks: RingdownPeakData, params: RingdownParams):
     Δwidths = []
 
     window = params.η_guess * 3
-    for peak_freq in peak_freqs:
+    deleted_peaks = []
+    for i, peak_freq in enumerate(peak_freqs):
         mask = (freqs > peak_freq - window) & (freqs < peak_freq + window)
         windowed_freqs = freqs[mask]
         windowed_power = power[mask]
@@ -215,20 +214,28 @@ def refine_peaks(peaks: RingdownPeakData, params: RingdownParams):
             [np.inf, windowed_freqs[-1], np.inf, 1],
         )
 
-        popt, pcov = scipy.optimize.curve_fit(
-            lorentzian,
-            windowed_freqs,
-            windowed_power,
-            p0=p0,
-            bounds=bounds,
-        )
-        perr = np.sqrt(np.diag(pcov))
+        try:
+            popt, pcov = scipy.optimize.curve_fit(
+                lorentzian,
+                windowed_freqs,
+                windowed_power,
+                p0=p0,
+                bounds=bounds,
+            )
+            perr = np.sqrt(np.diag(pcov))
 
-        new_freqs.append(popt[1])
-        Δfreqs.append(perr[1])
+            new_freqs.append(popt[1])
+            Δfreqs.append(perr[1])
 
-        new_widths.append(popt[2])
-        Δwidths.append(perr[2])
+            new_widths.append(popt[2])
+            Δwidths.append(perr[2])
+        except:
+            deleted_peaks.append(i)
+
+    peaks.peaks = np.delete(peaks.peaks, deleted_peaks)
+    for key, value in peaks.peak_info.items():
+        if isinstance(value, np.ndarray):
+            peaks.peak_info[key] = np.delete(value, deleted_peaks)
 
     peaks.peak_freqs = np.array(new_freqs)
     peaks.Δpeak_freqs = np.array(Δfreqs)
@@ -238,11 +245,15 @@ def refine_peaks(peaks: RingdownPeakData, params: RingdownParams):
     return peaks
 
 
+import matplotlib.pyplot as plt
+
+
 def extract_Ω_δ(
     peaks: RingdownPeakData, params: RingdownParams, threshold: float = 0.1
 ):
     """
-    Extract the FSR and mode splitting from the peaks.
+    Extract the FSR and mode splitting from the peaks.  The threshold
+    regulates the maximum allowed deviation from the expected FSR.
 
     :param peaks: The peak data.
     :param params: The ringdown parameters.
@@ -251,12 +262,101 @@ def extract_Ω_δ(
     if not peaks.is_refined:
         raise ValueError("Peaks must be refined.")
 
+    peak_indices = peaks.peaks
+    peak_freqs = peaks.peak_freqs
+    Δpeak_freqs = (
+        np.zeros_like(peak_freqs) if peaks.Δpeak_freqs is None else peaks.Δpeak_freqs
+    )
+
     Ω_guess = params.fΩ_guess
     δ_guess = params.fδ_guess
 
-    all_diff = np.abs(peaks.peak_freqs[:, None] - peaks.peak_freqs[None, :])
+    # first step: we extract the most common frequency spacing
+    all_diff = np.abs(peak_freqs[:, None] - peak_freqs[None, :])
     all_diff = np.triu(all_diff)
+    all_ΔΩ = np.abs(Δpeak_freqs[:, None] ** 2 + Δpeak_freqs[None, :] ** 2)
 
-    bath_mask = (all_diff - Ω_guess) / Ω_guess < threshold
+    bath_mask = (np.abs((all_diff - Ω_guess)) / Ω_guess < threshold) & (all_diff > 0)
+    candidates = all_diff[bath_mask]
+    Δcandidates = all_ΔΩ[bath_mask]
 
-    return np.mean((all_diff[bath_mask]))
+    Ω = np.mean(candidates)
+    ΔΩ = max(np.sqrt(np.sum(Δcandidates**2)) / len(candidates), np.std(candidates))
+
+    if np.isnan(Ω):
+        raise ValueError("No FSR found")
+
+    # second step: we walk through the peaks and label them as for the
+    total_peaks = len(peak_indices)
+    peak_pool = list(range(total_peaks))
+
+    ladders = []
+
+    current_peak = 0
+    current_ladder = []
+
+    possible_diffs = np.array([Ω, Ω - δ_guess, 2 * δ_guess])
+
+    while len(peak_pool) > 1:
+        if current_peak == len(peak_pool):
+            if current_ladder:
+                ladders.append(current_ladder)
+            current_ladder = []
+            current_peak = peak_pool[0]
+
+        filtered_freqs = peak_freqs[peak_pool]
+
+        diffs = filtered_freqs - filtered_freqs[current_peak]
+        diffs[diffs <= 0] = np.inf
+
+        diffs = (
+            np.abs(diffs[:, None] - possible_diffs[None, :]) / possible_diffs[None, :]
+        )
+
+        min_coords = np.unravel_index(np.argmin(diffs), diffs.shape)
+        min_diff = diffs[min_coords]
+
+        mode_index, step_type = min_coords
+
+        if min_diff > threshold:
+            if current_ladder:
+                ladders.append(current_ladder)
+            current_ladder = []
+            del peak_pool[current_peak]
+            continue
+
+        current_ladder.append((peak_pool[current_peak], step_type, min_diff))
+        del peak_pool[current_peak]
+        current_peak = mode_index - 1  # we have deleted one peak
+
+    if current_ladder:
+        ladders.append(current_ladder)
+
+    # we want at least one bath mode before the A site
+    ladders = list(
+        filter(
+            lambda ladder: sum([1 if x[1] == 1 else 0 for x in ladder]) > 0,
+            ladders,
+        )
+    )
+
+    invalid = []
+    for lad_index, ladder in enumerate(ladders):
+        length = len(ladder)
+        for i, elem in enumerate(ladder):
+            if elem[1] == 1:
+                if (i + 2) >= length or not (
+                    ladder[i + 1][1] == 2 and ladder[i + 2][1] == 1
+                ):
+                    invalid.append(lad_index)
+                break
+
+    ladders = [ladder for i, ladder in enumerate(ladders) if i not in invalid]
+    costs = [sum([x[2] for x in ladder]) / len(ladder) for ladder in ladders]
+
+    if len(costs) == 0:
+        raise ValueError("No matching modes found.")
+
+    best = ladders[np.argmin(costs)]
+
+    return Ω, ΔΩ, best

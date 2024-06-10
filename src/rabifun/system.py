@@ -67,12 +67,35 @@ class Params:
     correct_lamb_shift: float = 1
     """Whether to correct for the Lamb shift by tweaking the detuning."""
 
+    drive_override: tuple[np.ndarray, np.ndarray] | None = None
+    """
+    Override the drive frequencies (first array, linear frequency) and
+    amplitudes (second array, linear frequency units).
+
+    In this case the detunings of the rotating frame will be zeroed
+    and the parameters :any:`α` and :any:`ω_c` will be ignored.
+
+    The drive strength is normalized to :any:`g_0`.
+    """
+
     def __post_init__(self):
         if self.N_couplings > self.N:
             raise ValueError("N_couplings must be less than or equal to N.")
 
         if self.initial_state and len(self.initial_state) != 2 * self.N + 2:
             raise ValueError("Initial state must have length 2N + 2.")
+
+        if self.drive_override is not None:
+            if len(self.drive_override) != 2:
+                raise ValueError("Drive override must be a tuple of two arrays.")
+
+            if len(self.drive_override[0]) != len(self.drive_override[1]):
+                raise ValueError(
+                    "Drive frequencies and amplitudes must have the same length."
+                )
+
+            if self.rwa:
+                raise ValueError("Drive override is not compatible with the RWA.")
 
     def periods(self, n: float):
         """
@@ -116,6 +139,13 @@ class RuntimeParams:
             drive_frequencies_and_amplitudes(params)
         )  # linear frequencies!
 
+        if params.drive_override is not None:
+            self.drive_frequencies = params.drive_override[0]
+            self.g = 2 * np.pi * params.drive_override[1]
+            a_shift = 0
+            self.detunings *= 0
+            self.g /= params.g_0 * np.sqrt(np.sum(self.g**2))
+
         self.g *= 2 * np.pi
         self.Ωs = Ωs
         self.ε = (
@@ -136,9 +166,12 @@ class RuntimeParams:
         self.bath_ε = 2 * np.pi * self.detunings - 1j * params.η / 2
         self.a_shift = 2 * np.pi * a_shift
         self.detuned_Ωs = freqs - self.ε.real
+
         self.RWA_H = np.zeros((2 * params.N + 2, 2 * params.N + 2), np.complex128)
-        self.RWA_H[1, 2 : 2 + params.N_couplings] = self.g
-        self.RWA_H[2 : 2 + params.N_couplings, 1] = np.conj(self.g)
+        if not params.drive_override:
+            self.RWA_H[1, 2 : 2 + params.N_couplings] = self.g
+            self.RWA_H[2 : 2 + params.N_couplings, 1] = np.conj(self.g)
+
         self.detuning_matrix = self.detuned_Ωs[:, None] - self.detuned_Ωs[None, :]
 
     def __repr__(self):
@@ -245,9 +278,9 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
             differential[0:2] += laser[:2] / np.sqrt(2)
             differential[2:] += laser[2:]
 
-        # if params.rwa:
-        #     differential[0] = 0
-        #     differential[2 + params.N_couplings :] = 0
+        if params.rwa:
+            differential[0] = 0
+            differential[2 + params.N_couplings :] = 0
 
         return -1j * differential
 
@@ -314,7 +347,7 @@ def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     """
 
     runtime = RuntimeParams(params)
-    rotating = amplitudes * np.exp(-1j * runtime.detuned_Ωs * t)
+    rotating = amplitudes * np.exp(-1j * runtime.detuned_Ωs[:, None] * t)
 
     return (
         np.sum(rotating, axis=0)
