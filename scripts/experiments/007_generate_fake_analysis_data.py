@@ -61,18 +61,20 @@ def generate_phase_one_data():
     fluct_size = 0.05
 
     params, t, solution = make_params_and_solve(
-        total_lifetimes, eom_off_lifetime, N=10, g_0=10
+        total_lifetimes, eom_off_lifetime, N=3, g_0=10
     )
     signal = output_signal(t, solution.y, params)
 
     rng = np.random.default_rng(seed=0)
-    signal += np.mean(abs(signal)) * rng.standard_normal(len(signal)) * fluct_size * 100
+    signal += np.mean(abs(signal)) * rng.standard_normal(len(signal)) * fluct_size * 50
 
     fig = make_figure()
     ax_realtime, ax_spectrum = fig.subplots(2, 1)
 
     ax_realtime.plot(t[::500], signal[::500])
     ax_realtime.axvline(params.laser_off_time, color="black", linestyle="--")
+    ax_realtime.set_xlabel("Time")
+    ax_realtime.set_ylabel("Intensity")
 
     # now we plot the power spectrum
     window = (float(params.laser_off_time or 0), float(t[-1]))
@@ -90,15 +92,18 @@ def generate_phase_one_data():
     peak_info = refine_peaks(peak_info, ringdown_params)
     plot_spectrum_and_peak_info(ax_spectrum, peak_info, ringdown_params)
 
-    Ω, ΔΩ, ladder = extract_Ω_δ(peak_info, ringdown_params, threshold=0.2)
+    Ω, ΔΩ, δ, Δδ, ladder = extract_Ω_δ(
+        peak_info, ringdown_params, Ω_threshold=0.1, ladder_threshold=0.1
+    )
 
-    for index, type, _ in ladder:
+    for index, type in ladder:
         freq_index = peak_info.peaks[index]
+        print(type, type is StepType.BATH)
         ax_spectrum.plot(
             peak_info.freq[freq_index],
             peak_info.normalized_power[freq_index],
-            "o" if type == 0 else "*",
-            color="C4" if type == 0 else "C5",
+            "o" if type.value == StepType.BATH.value else "*",
+            color="C4" if type.value == StepType.BATH.value else "C5",
             label=type,
         )
-    return Ω, ΔΩ, ladder
+    return Ω, ΔΩ, δ, Δδ, ladder

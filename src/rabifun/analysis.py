@@ -6,6 +6,7 @@ import dataclasses
 from dataclasses import dataclass
 
 from scipy.optimize import Bounds
+from enum import Enum
 
 
 def fourier_transform(
@@ -257,8 +258,20 @@ def refine_peaks(
 import matplotlib.pyplot as plt
 
 
+class StepType(Enum):
+    BATH = 0
+    BATH_TO_A = 1
+    A_TO_A = 2
+
+
 def extract_Ω_δ(
-    peaks: RingdownPeakData, params: RingdownParams, threshold: float = 0.1
+    peaks: RingdownPeakData,
+    params: RingdownParams,
+    Ω_threshold: float = 0.1,
+    ladder_threshold: float = 0.1,
+    bifurcations: int = 3,
+    start_peaks: int = 2,
+    min_length: int = 4,
 ):
     """
     Extract the FSR and mode splitting from the peaks.  The threshold
@@ -266,6 +279,14 @@ def extract_Ω_δ(
 
     :param peaks: The peak data.
     :param params: The ringdown parameters.
+    :param Ω_threshold: The maximum allowed relative deviation from
+        the expected FSR for the rough search.
+    :param ladder_threshold: The maximum allowed relative deviation
+        from the expected step sizes for the ladder search.
+    :param bifurcations: The number of bifurcations to consider in the
+        ladder search, i.e. how many possible new steps are accepted at each step.
+    :param start_peaks: The number of peaks to start the ladder search (from the left).
+    :param min_length: The minimum length of a ladder to be considered valid.
     """
 
     if not peaks.is_refined:
@@ -285,7 +306,7 @@ def extract_Ω_δ(
     all_diff = np.triu(all_diff)
     all_ΔΩ = np.abs(Δpeak_freqs[:, None] ** 2 + Δpeak_freqs[None, :] ** 2)
 
-    bath_mask = (np.abs((all_diff - Ω_guess)) / Ω_guess < threshold) & (all_diff > 0)
+    bath_mask = (np.abs((all_diff - Ω_guess)) / Ω_guess < Ω_threshold) & (all_diff > 0)
     candidates = all_diff[bath_mask]
     Δcandidates = all_ΔΩ[bath_mask]
 
@@ -306,66 +327,128 @@ def extract_Ω_δ(
 
     possible_diffs = np.array([Ω, Ω - δ_guess, 2 * δ_guess])
 
-    while len(peak_pool) > 1:
-        if current_peak == len(peak_pool):
-            if current_ladder:
-                ladders.append(current_ladder)
-            current_ladder = []
-            current_peak = peak_pool[0]
+    # entry in a ladder: (peak_index, step_type)
 
-        filtered_freqs = peak_freqs[peak_pool]
+    def walk_ladder(
+        current_peak,
+        last_type=StepType.BATH,
+        second_last_type=StepType.BATH,
+        bifurcations=3,
+    ):
+        if current_peak == total_peaks - 1:
+            return [], []
 
-        diffs = filtered_freqs - filtered_freqs[current_peak]
+        match last_type:
+            case StepType.BATH:
+                allowed_steps = [StepType.BATH, StepType.BATH_TO_A]
+            case StepType.BATH_TO_A:
+                match second_last_type:
+                    case StepType.BATH:
+                        allowed_steps = [StepType.A_TO_A]
+
+                    case StepType.A_TO_A:
+                        allowed_steps = [StepType.BATH]
+            case StepType.A_TO_A:
+                allowed_steps = [StepType.BATH_TO_A]
+
+        allowed_step_indices = [x.value for x in allowed_steps]
+        allowed_possible_diffs = possible_diffs[allowed_step_indices]
+
+        diffs = peak_freqs - peak_freqs[current_peak]
         diffs[diffs <= 0] = np.inf
 
         diffs = (
-            np.abs(diffs[:, None] - possible_diffs[None, :]) / possible_diffs[None, :]
+            np.abs(diffs[:, None] - allowed_possible_diffs[None, :])
+            / allowed_possible_diffs[None, :]
         )
 
-        min_coords = np.unravel_index(np.argmin(diffs), diffs.shape)
-        min_diff = diffs[min_coords]
+        ladders = []
+        costs = []
+        min_candidates = np.argpartition(diffs.flatten(), bifurcations)[:bifurcations]
 
-        mode_index, step_type = min_coords
+        for min_coords in min_candidates:
+            min_coords = np.unravel_index(min_coords, diffs.shape)
+            min_diff = diffs[min_coords]
+            peak_index, step_type = min_coords
 
-        if min_diff > threshold:
-            if current_ladder:
-                ladders.append(current_ladder)
-            current_ladder = []
-            del peak_pool[current_peak]
-            continue
+            step_type = StepType(allowed_step_indices[step_type])
 
-        current_ladder.append((peak_pool[current_peak], step_type, min_diff))
-        del peak_pool[current_peak]
-        current_peak = mode_index - 1  # we have deleted one peak
+            this_rung = [(current_peak, step_type)]
+            if min_diff < ladder_threshold + (ΔΩ / Ω):
+                new_ladders, new_costs = walk_ladder(
+                    peak_index,
+                    step_type,
+                    last_type,
+                    bifurcations,
+                )
 
-    if current_ladder:
-        ladders.append(current_ladder)
+                if len(new_ladders) == 0:
+                    ladders.append(this_rung)
+                    costs.append(min_diff)
+                else:
+                    for new_ladder, new_cost in zip(new_ladders, new_costs):
+                        if new_ladder:
+                            ladders.append(this_rung + new_ladder)
+                            costs.append(new_cost + min_diff)
 
-    # we want at least one bath mode before the A site
-    ladders = list(
-        filter(
-            lambda ladder: sum([1 if x[1] == 1 else 0 for x in ladder]) > 0,
-            ladders,
+        return ladders, costs
+
+    ladders = []
+    costs = []
+
+    for start_index in range(min(total_peaks, start_peaks)):
+        new_ladders, new_costs = walk_ladder(
+            start_index, StepType.BATH, StepType.BATH, bifurcations
         )
-    )
+        ladders += new_ladders
+        costs += new_costs
 
     invalid = []
     for lad_index, ladder in enumerate(ladders):
-        length = len(ladder)
-        for i, elem in enumerate(ladder):
-            if elem[1] == 1:
-                if (i + 2) >= length or not (
-                    ladder[i + 1][1] == 2 and ladder[i + 2][1] == 1
-                ):
-                    invalid.append(lad_index)
+        if len(ladder) < min_length:
+            invalid.append(lad_index)
+            continue
+
+        is_invalid = True
+        for elem in ladder:
+            if elem[1] == StepType.A_TO_A:
+                is_invalid = False
                 break
 
+        if is_invalid:
+            invalid.append(lad_index)
+
     ladders = [ladder for i, ladder in enumerate(ladders) if i not in invalid]
-    costs = [sum([x[2] for x in ladder]) / len(ladder) for ladder in ladders]
+    costs = [cost for i, cost in enumerate(costs) if i not in invalid]
 
-    if len(costs) == 0:
-        raise ValueError("No matching modes found.")
+    costs = [cost / len(ladder) for cost, ladder in zip(costs, ladders)]
 
-    best = ladders[np.argmin(costs)]
+    best = np.argmin(costs)
+    best_ladder = ladders[best]
 
-    return Ω, ΔΩ, best
+    Ωs = []
+    δs = []
+    Ω_m_δs = []
+
+    for (i, (begin_index, begin_type)), (end_index, _) in zip(
+        enumerate(best_ladder[:-1]), best_ladder[1:]
+    ):
+        match begin_type:
+            case StepType.BATH:
+                Ωs.append(peak_freqs[end_index] - peak_freqs[begin_index])
+            case StepType.BATH_TO_A:
+                Ω_m_δs.append(peak_freqs[end_index] - peak_freqs[begin_index])
+                if i < len(best_ladder) - 2:
+                    Ωs.append(
+                        (peak_freqs[best_ladder[i + 2][0]] - peak_freqs[begin_index])
+                        / 2
+                    )
+            case StepType.A_TO_A:
+                δs.append((peak_freqs[end_index] - peak_freqs[begin_index]) / 2)
+
+    Ω = np.mean(Ωs)
+    ΔΩ = np.std(Ωs)
+    δ = np.mean(δs)
+    Δδ = np.std(δs)
+
+    return Ω, ΔΩ, δ, Δδ, best_ladder
