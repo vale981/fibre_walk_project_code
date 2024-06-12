@@ -78,6 +78,9 @@ class Params:
     The drive strength is normalized to :any:`g_0`.
     """
 
+    small_loop_detuning: float = 0
+    """The detuning (in units of :any:`Ω`) of the small loop mode relative to the ``A`` mode."""
+
     def __post_init__(self):
         if self.N_couplings > self.N:
             raise ValueError("N_couplings must be less than or equal to N.")
@@ -124,12 +127,28 @@ class RuntimeParams:
     """Secondary Parameters that are required to run the simulation."""
 
     def __init__(self, params: Params):
+        H_A = np.array(
+            [
+                [0, params.δ],
+                [params.δ, params.small_loop_detuning],
+            ]
+        )
+
+        eig = np.linalg.eigh(H_A)
+        idx = np.argsort(eig.eigenvalues)
+        anti_a_frequency, a_frequency = eig.eigenvalues[idx]
+        self.a_weights = np.abs(eig.eigenvectors[:, idx][0, :])
+
         bath = np.arange(1, params.N + 1)
         freqs = (
             2
             * np.pi
             * params.Ω
-            * np.concatenate([[-1 * params.δ, params.δ], bath, -bath])
+            * (
+                np.concatenate([[anti_a_frequency, a_frequency], bath, -bath])
+                - a_frequency
+                + params.δ
+            )
         )
 
         decay_rates = -1j * np.repeat(params.η / 2, 2 * params.N + 2)
@@ -138,16 +157,28 @@ class RuntimeParams:
         self.drive_frequencies, self.detunings, self.g, a_shift = (
             drive_frequencies_and_amplitudes(params)
         )  # linear frequencies!
-
         if params.drive_override is not None:
             self.drive_frequencies = params.drive_override[0]
             self.g = 2 * np.pi * params.drive_override[1]
             a_shift = 0
             self.detunings *= 0
-            self.g /= params.g_0 * np.sqrt(np.sum(self.g**2))
+            self.g *= params.g_0 / np.sqrt(np.sum(self.g**2))
+
+        # print(params.δ * 2 - (a_frequency - anti_a_frequency))
+        # print((params.Ω - params.δ) - (params.Ω - a_frequency))
+        # print(
+        #     (freqs[2] - freqs[1]) / (2 * np.pi),
+        #     (params.Ω * (1 - a_frequency)),
+        #     (params.Ω * (1 - params.δ)),
+        # )
+        # print(np.diff(freqs) / (2 * np.pi))
+        # import ipdb
+
+        # ipdb.set_trace()
 
         self.g *= 2 * np.pi
         self.Ωs = Ωs
+
         self.ε = (
             2
             * np.pi
@@ -206,13 +237,15 @@ def time_axis(
     return np.arange(0, tmax, resolution * np.pi / (params.Ω * params.N))
 
 
-def eom_drive(t, x, ds, ωs, det_matrix):
+def eom_drive(t, x, ds, ωs, det_matrix, a_weights):
     """The electrooptical modulation drive.
 
     :param t: time
     :param x: amplitudes
     :param ds: drive amplitudes
     :param ωs: linear drive frequencies
+    :param det_matrix: detuning matrix
+    :param a_weights: weights of the A modes
     """
 
     # test = abs(det_matrix.copy())
@@ -221,6 +254,14 @@ def eom_drive(t, x, ds, ωs, det_matrix):
     # print(np.argmin(test, keepdims=True))
 
     det_matrix = np.exp(-1j * det_matrix * t)
+    for i, weight in enumerate(a_weights):
+        det_matrix[i, 2:] *= weight
+        det_matrix[2:, i] *= weight.conjugate()
+
+    # FIXME: that's not strictly right for the non symmetric damping
+    prod = a_weights[0] * a_weights[1].conj()
+    det_matrix[0, 1] *= prod
+    det_matrix[1, 0] *= prod.conjugate()
 
     driven_x = np.sum(2 * ds * np.sin(2 * np.pi * ωs * t)) * (det_matrix @ x)
 
@@ -261,21 +302,20 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
                     runtime_params.g,
                     runtime_params.drive_frequencies,
                     runtime_params.detuning_matrix,
+                    runtime_params.a_weights,
                 )
 
         if (params.laser_off_time is None) or (t < params.laser_off_time):
             freqs = laser_frequency(params, t) - runtime_params.detuned_Ωs.real
 
-            laser = np.exp(
-                -1j * (laser_frequency(params, t) - runtime_params.detuned_Ωs.real) * t
-            )
+            laser = np.exp(-1j * freqs * t)
 
             if params.rwa:
                 index = np.argmin(abs(freqs))
                 laser[0:index] = 0
                 laser[index + 1 :] = 0
 
-            differential[0:2] += laser[:2] / np.sqrt(2)
+            differential[0:2] += laser[:2] * runtime_params.a_weights
             differential[2:] += laser[2:]
 
         if params.rwa:
@@ -323,23 +363,6 @@ def solve(t: np.ndarray, params: Params, **kwargs):
     )
 
 
-def in_rotating_frame(
-    t: np.ndarray, amplitudes: np.ndarray, params: Params
-) -> np.ndarray:
-    """Transform the amplitudes to the rotating frame."""
-    Ωs = RuntimeParams(params).Ωs
-
-    detunings = np.concatenate(
-        [[0, 0], drive_detunings(params), np.zeros(params.N - params.N_couplings)]
-    )
-
-    return amplitudes * np.exp(
-        1j
-        * (Ωs[:, None].real - detunings[:, None] + laser_frequency(params, t)[None, :])
-        * t[None, :]
-    )
-
-
 def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     """
     Calculate the output signal when mixing with laser light of
@@ -347,7 +370,8 @@ def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     """
 
     runtime = RuntimeParams(params)
-    rotating = amplitudes * np.exp(-1j * runtime.detuned_Ωs[:, None] * t)
+    rotating = amplitudes * np.exp(-1j * runtime.detuned_Ωs[:, None] * t[None, :])
+    rotating[0:2, :] *= runtime.a_weights[:, None].conjugate()
 
     return (
         np.sum(rotating, axis=0)

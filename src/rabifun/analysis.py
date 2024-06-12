@@ -314,7 +314,7 @@ def extract_Ω_δ(
     ΔΩ = max(np.sqrt(np.sum(Δcandidates**2)) / len(candidates), np.std(candidates))
 
     if np.isnan(Ω):
-        raise ValueError("No FSR found")
+        raise ValueError("No bath modes found!")
 
     # second step: we walk through the peaks and label them as for the
     total_peaks = len(peak_indices)
@@ -333,7 +333,7 @@ def extract_Ω_δ(
         current_peak,
         last_type=StepType.BATH,
         second_last_type=StepType.BATH,
-        bifurcations=3,
+        bifurcations=bifurcations,
     ):
         if current_peak == total_peaks - 1:
             return [], []
@@ -423,11 +423,15 @@ def extract_Ω_δ(
 
     costs = [cost / len(ladder) for cost, ladder in zip(costs, ladders)]
 
+    if len(costs) == 0:
+        raise ValueError("No valid ladders/spectra found.")
+
     best = np.argmin(costs)
     best_ladder = ladders[best]
 
     Ωs = []
     δs = []
+    Δδs = []
     Ω_m_δs = []
 
     for (i, (begin_index, begin_type)), (end_index, _) in zip(
@@ -438,17 +442,15 @@ def extract_Ω_δ(
                 Ωs.append(peak_freqs[end_index] - peak_freqs[begin_index])
             case StepType.BATH_TO_A:
                 Ω_m_δs.append(peak_freqs[end_index] - peak_freqs[begin_index])
-                if i < len(best_ladder) - 2:
-                    Ωs.append(
-                        (peak_freqs[best_ladder[i + 2][0]] - peak_freqs[begin_index])
-                        / 2
-                    )
             case StepType.A_TO_A:
                 δs.append((peak_freqs[end_index] - peak_freqs[begin_index]) / 2)
+                Δδs.append(
+                    np.sqrt(Δpeak_freqs[end_index] ** 2 + Δpeak_freqs[begin_index] ** 2)
+                )
 
     Ω = np.mean(Ωs)
     ΔΩ = np.std(Ωs)
     δ = np.mean(δs)
-    Δδ = np.std(δs)
+    Δδ = np.mean(Δδs)
 
     return Ω, ΔΩ, δ, Δδ, best_ladder
