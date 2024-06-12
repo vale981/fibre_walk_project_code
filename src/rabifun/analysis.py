@@ -183,12 +183,17 @@ def find_peaks(
     )
 
 
-def refine_peaks(peaks: RingdownPeakData, params: RingdownParams):
+def refine_peaks(
+    peaks: RingdownPeakData, params: RingdownParams, uncertainty_threshold: float = 0.1
+):
     """
     Refine the peak positions and frequencies by fitting Lorentzians.
 
     :param peaks: The peak data.
     :param params: The ringdown parameters.
+    :param uncertainty_threshold: The maximum allowed uncertainty in
+        the mode frequencies in units of
+        :any:`ringdown_params.fΩ_guess`.
     """
 
     peaks = dataclasses.replace(peaks)
@@ -223,6 +228,10 @@ def refine_peaks(peaks: RingdownPeakData, params: RingdownParams):
                 bounds=bounds,
             )
             perr = np.sqrt(np.diag(pcov))
+
+            if perr[1] > uncertainty_threshold * params.fΩ_guess:
+                deleted_peaks.append(i)
+                continue
 
             new_freqs.append(popt[1])
             Δfreqs.append(perr[1])
