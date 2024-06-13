@@ -34,7 +34,7 @@ def make_params_and_solve(
         laser_detuning=laser_detuning,
         N=N,
         N_couplings=N,
-        measurement_detuning=Ω * (3),
+        measurement_detuning=200,
         α=0,
         rwa=False,
         flat_energies=False,
@@ -48,10 +48,9 @@ def make_params_and_solve(
 
     params.drive_override = (
         np.array([params.Ω, params.Ω * (1 - params.δ), params.δ * 2 * params.Ω]),
-        np.repeat(params.Ω, 3),
+        np.ones(3),
     )
-    params.drive_override[1][-1] *= 4
-    params.drive_override[1][-1] *= 4
+    params.drive_override[1][-1] *= 2
 
     t = time_axis(params, lifetimes=total_lifetimes, resolution=0.01)
     solution = solve(t, params)
@@ -75,8 +74,8 @@ def generate_phase_one_data():
         eom_off_lifetime,
         N=20,
         g_0=1,
-        small_loop_detuning=0,  # 0.05,
-        laser_detuning=-0.01,
+        small_loop_detuning=0.1,
+        laser_detuning=0.1,
     )
     signal = output_signal(t, solution.y, params)
 
@@ -109,7 +108,7 @@ def generate_phase_one_data():
 
     ringdown_params = RingdownParams(
         fω_shift=params.measurement_detuning,
-        mode_window=(params.N + 2, params.N + 2),
+        mode_window=(5, 5),
         fΩ_guess=params.Ω * (1 + rng.standard_normal() * fluct_size),
         fδ_guess=params.Ω * params.δ * (1 + rng.standard_normal() * fluct_size),
         η_guess=params.η * (1 + rng.standard_normal() * fluct_size),
@@ -121,7 +120,12 @@ def generate_phase_one_data():
     plot_spectrum_and_peak_info(ax_spectrum, peak_info, ringdown_params)
 
     Ω, ΔΩ, δ, Δδ, ladder = extract_Ω_δ(
-        peak_info, ringdown_params, Ω_threshold=0.1, ladder_threshold=0.1, start_peaks=4
+        peak_info,
+        ringdown_params,
+        Ω_threshold=0.1,
+        ladder_threshold=0.1,
+        start_peaks=6,
+        bifurcations=5,
     )
 
     for index, type in ladder:
@@ -135,8 +139,9 @@ def generate_phase_one_data():
             label=type,
         )
 
+    runtime = RuntimeParams(params)
     fig.suptitle(
-        f"""Calibration Phase One Demonstration\n N={params.N} * 2 modes g_0={params.g_0}, SNR={SNR}, Ω (input) = {params.Ω:.2f}, δ (input) = {params.Ω*params.δ:.2f}
+        f"""Calibration Phase One Demonstration\n N={params.N} * 2 modes g_0={params.g_0}, SNR={SNR}, Ω (input) = {params.Ω:.2f}, δ (input) = {(runtime.mode_splitting):.2f}
 Ω={Ω:.2f} ± {ΔΩ:.2f}, δ={δ:.2f} ± {Δδ:.2f}
 """
     )

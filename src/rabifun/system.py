@@ -159,22 +159,11 @@ class RuntimeParams:
         )  # linear frequencies!
         if params.drive_override is not None:
             self.drive_frequencies = params.drive_override[0]
-            self.g = 2 * np.pi * params.drive_override[1]
+            self.g = params.drive_override[1]
+
             a_shift = 0
             self.detunings *= 0
             self.g *= params.g_0 / np.sqrt(np.sum(self.g**2))
-
-        # print(params.δ * 2 - (a_frequency - anti_a_frequency))
-        # print((params.Ω - params.δ) - (params.Ω - a_frequency))
-        # print(
-        #     (freqs[2] - freqs[1]) / (2 * np.pi),
-        #     (params.Ω * (1 - a_frequency)),
-        #     (params.Ω * (1 - params.δ)),
-        # )
-        # print(np.diff(freqs) / (2 * np.pi))
-        # import ipdb
-
-        # ipdb.set_trace()
 
         self.g *= 2 * np.pi
         self.Ωs = Ωs
@@ -205,8 +194,10 @@ class RuntimeParams:
 
         self.detuning_matrix = self.detuned_Ωs[:, None] - self.detuned_Ωs[None, :]
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}(Ωs={self.Ωs}, drive_frequencies={self.drive_frequencies}, drive_amplitudes={self.g})"
+    @property
+    def mode_splitting(self):
+        """The mode splitting of the system in *frequency units*."""
+        return (self.Ωs[1] - self.Ωs[0]).real / (4 * np.pi)
 
 
 def time_axis(
