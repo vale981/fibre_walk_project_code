@@ -277,6 +277,20 @@ def extract_Ω_δ(
     Extract the FSR and mode splitting from the peaks.  The threshold
     regulates the maximum allowed deviation from the expected FSR.
 
+    The basis of the algorithm is, that one knows a rough estimate of
+    the FSR ``params.Ω_guess`` of the big loop (maybe up to 1%
+    deviation).  The algorithm then identifies all peaks are
+    ``Ω_threshold * params.Ω_guess`` off from the guess.  Subsequently
+    the estimate of the FSR is refined.  The algorithm then
+    recursively tries to match peaks into the pattern or "ladder"
+    ``[bath, bath, ..., bath, hybridized, hybridized, bath, ...]``.
+    The ladder that fits best is returned.  One can start to construct
+    these ladders beginning at the first up to the ``start_peaks``st
+    peak.  At each step, the algorithm accepts modes that fit within
+    the relative ``ladder_threshold`` up to a maximum of modes given
+    by the integer ``biffurcation``.  If a ladder is comprised of less
+    than ``min_length`` modes, it is discarded.
+
     :param peaks: The peak data.
     :param params: The ringdown parameters.
     :param Ω_threshold: The maximum allowed relative deviation from
@@ -284,9 +298,12 @@ def extract_Ω_δ(
     :param ladder_threshold: The maximum allowed relative deviation
         from the expected step sizes for the ladder search.
     :param bifurcations: The number of bifurcations to consider in the
-        ladder search, i.e. how many possible new steps are accepted at each step.
-    :param start_peaks: The number of peaks to start the ladder search (from the left).
-    :param min_length: The minimum length of a ladder to be considered valid.
+        ladder search, i.e. how many possible new steps are accepted
+        at each step.
+    :param start_peaks: The number of peaks to start the ladder search
+        (from the left).
+    :param min_length: The minimum length of a ladder to be considered
+        valid.
     """
 
     if not peaks.is_refined:

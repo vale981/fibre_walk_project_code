@@ -34,7 +34,7 @@ def make_params_and_solve(
         laser_detuning=laser_detuning,
         N=N,
         N_couplings=N,
-        measurement_detuning=200,
+        measurement_detuning=20,
         α=0,
         rwa=False,
         flat_energies=False,
@@ -72,7 +72,7 @@ def generate_phase_one_data():
     params, t, solution = make_params_and_solve(
         total_lifetimes,
         eom_off_lifetime,
-        N=20,
+        N=30,
         g_0=1,
         small_loop_detuning=0.1,
         laser_detuning=0.1,
