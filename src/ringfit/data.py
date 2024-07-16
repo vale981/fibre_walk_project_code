@@ -56,23 +56,30 @@ class ScanData:
         gc.collect()
 
     @classmethod
-    def from_dir(cls, directory: str | Path, **kwargs):
+    def from_dir(cls, directory: str | Path, extension: str = "npy", **kwargs):
         """Load and parse the oscilloscope data from the
-        ``directory``.  The ``**kwargs`` are passed to the
-        constructor.
+        ``directory``.  The ``extension`` determines the file
+        extension of the data dumps.  The ``**kwargs`` are passed to
+        the constructor.
 
         The directory should contain ``signal_laser.npy``,
         ``signal_outp.npy``, and ``time.npy``.
         """
 
         directory = Path(directory)
-        laserpath = directory / "signal_laser.npy"
+        laserpath = directory / ("signal_laser." + extension)
 
-        output = np.load(directory / "signal_outp.npy")
-        time = np.load(directory / "time.npy")
-        laser = np.load(laserpath) if laserpath.exists() else np.zeros_like(time)
+        output = np.load(directory / ("signal_outp." + extension))
+        time = np.load(directory / ("time." + extension))
+        laser = np.load(laserpath) if laserpath.exists() else None
 
-        return cls(laser, output, time, **kwargs)
+        files = [laser, output, time]
+        for i, file in enumerate(files):
+            if file is not None and isinstance(file, np.lib.npyio.NpzFile):
+                files[i] = file["arr_0"]
+
+        files[0] = laser or np.zeros_like(files[-1])
+        return cls(*files, **kwargs)
 
     @property
     def laser(self):

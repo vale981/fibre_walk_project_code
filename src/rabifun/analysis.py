@@ -90,10 +90,19 @@ class RingdownParams:
     mode_window: tuple[int, int] = (10, 10)
     """How many FSRs of frequency to consider around :any`fω_shift`."""
 
+    absolute_low_cutoff: float = 0e6
+    """
+    The absolute lowest frequency to consider in Hz.  This has
+    precedence over the ``mode_window``.
+    """
+
     @property
     def low_cutoff(self) -> float:
         """The low cutoff frequency of the ringdown spectrum fft."""
-        return max(self.fω_shift - self.mode_window[0] * self.fΩ_guess, 0)
+        return max(
+            self.fω_shift - self.mode_window[0] * self.fΩ_guess,
+            self.absolute_low_cutoff,
+        )
 
     @property
     def high_cutoff(self) -> float:
@@ -143,7 +152,7 @@ def find_peaks(
     params: RingdownParams,
     window: tuple[float, float],
     prominence: float = 0.005,
-):
+) -> RingdownPeakData:
     """Determine the peaks of the normalized power spectrum of the
     ringdown data.
 
@@ -321,7 +330,7 @@ def extract_Ω_δ(
     # first step: we extract the most common frequency spacing
     all_diff = np.abs(peak_freqs[:, None] - peak_freqs[None, :])
     all_diff = np.triu(all_diff)
-    all_ΔΩ = np.abs(Δpeak_freqs[:, None] ** 2 + Δpeak_freqs[None, :] ** 2)
+    all_ΔΩ = np.sqrt(Δpeak_freqs[:, None] ** 2 + Δpeak_freqs[None, :] ** 2)
 
     bath_mask = (np.abs((all_diff - Ω_guess)) / Ω_guess < Ω_threshold) & (all_diff > 0)
     candidates = all_diff[bath_mask]

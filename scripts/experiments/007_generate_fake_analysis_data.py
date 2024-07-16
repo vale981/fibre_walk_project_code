@@ -67,7 +67,7 @@ def generate_phase_one_data():
     total_lifetimes = 20
     eom_off_lifetime = total_lifetimes * 1 / 2
     fluct_size = 0.05
-    SNR = 0.8
+    SNR = 0.5
 
     params, t, solution = make_params_and_solve(
         total_lifetimes,

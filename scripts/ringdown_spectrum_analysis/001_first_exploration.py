@@ -13,7 +13,7 @@ import pickle
 
 # %% load data
 path = "../../data/22_05_24/ringdown_try_2"
-scan = ScanData.from_dir(path)
+scan = ScanData.from_dir(path, extension="npz")
 
 
 # %% Set Window
