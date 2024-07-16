@@ -33,6 +33,7 @@ def plot_scan(
     normalize=False,
     smoothe_output: bool | float = False,
     max_frequency: float | bool = 0,
+    every=1,
     ax=None,
     **kwargs,
 ):
@@ -60,7 +61,7 @@ def plot_scan(
                 laser_data.max() - laser_data.min()
             )
 
-        lines = ax.plot(time, laser_data, **kwargs)
+        lines = ax.plot(time[::every], laser_data[::every], **kwargs)
 
     if output:
         if normalize:
@@ -68,7 +69,7 @@ def plot_scan(
                 output_data.max() - output_data.min()
             )
 
-        lines = ax.plot(time, output_data, **kwargs)
+        lines = ax.plot(time[::every], output_data[::every], **kwargs)
 
     if isinstance(steps, bool) and steps:
         peaks = data.laser_steps()

@@ -9,7 +9,7 @@ from .system import (
     uncoupled_mode_indices,
     correct_for_decay,
 )
-from .analysis import fourier_transform, RingdownPeakData, RingdownParams
+from .analysis import fourier_transform, RingdownPeakData, RingdownParams, lorentzian
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -213,27 +213,43 @@ def plot_rwa_vs_real_amplitudes(ax, solution_no_rwa, solution_rwa, params, **kwa
     return no_rwa_lines, rwa_lines
 
 
-def plot_spectrum_and_peak_info(ax, peaks: RingdownPeakData, params: RingdownParams):
+def plot_spectrum_and_peak_info(
+    ax, peaks: RingdownPeakData, params: RingdownParams, annotate=False
+):
     """Plot the fft spectrum with peaks.
 
     :param ax: The axis to plot on.
     :param peaks: The peak data.
     :param params: The ringdown parameters.
+    :param annotate: Whether to annotate the peaks.
     """
 
     ax.clear()
-    ax.plot(peaks.freq, peaks.normalized_power, label="FFT Power", color="C0")
+    ax.plot(peaks.freq, peaks.power, label="FFT Power", color="C0")
     ax.plot(
         peaks.peak_freqs,
-        peaks.normalized_power[peaks.peaks],
+        peaks.power[peaks.peaks],
         "x",
         label="Peaks",
         color="C2",
     )
+
+    if annotate:
+        for i, (freq, height, lorentz) in enumerate(
+            zip(peaks.peak_freqs, peaks.power[peaks.peaks], peaks.lorentz_params)
+        ):
+            ax.annotate(f"{i} ({freq:.2e})", (freq, height))
+            ax.plot(
+                peaks.freq,
+                lorentzian(peaks.freq, *lorentz),
+                "--",
+                color="C2",
+                alpha=0.5,
+            )
+
     ax.set_title("FFT Spectrum")
     ax.set_xlabel("ω [linear]")
     ax.set_ylabel("Power")
-    ax.set_ylim(0, 1.1)
     ax.axvline(
         params.fω_shift,
         color="gray",
@@ -241,5 +257,4 @@ def plot_spectrum_and_peak_info(ax, peaks: RingdownPeakData, params: RingdownPar
         zorder=-10,
         label="Frequency Shift",
     )
-
     ax.legend()

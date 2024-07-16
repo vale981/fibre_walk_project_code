@@ -38,21 +38,17 @@ def fourier_transform(
     return (freq[mask], fft[mask], t) if ret_time else (freq[mask], fft[mask])
 
 
-def lorentzian(ω, A, ω0, γ, offset):
+def lorentzian(ω, A, ω0, γ):
     """A Lorentzian function with amplitude ``A``, center frequency
     ``ω0``, and decay rate ``γ`` and offset ``offset``.
 
     :param ω: Frequency array.
     :param A: Amplitude.
     :param ω0: Center frequency.
-    :param γ: Decay rate. The decay of an amplitude is :math:`\frac{γ}{2}`.
-    :param offset: Vertical offset.
+    :param γ: Decay rate. The decay of a squared amplitude is :math:`2πγ`.
     """
 
-    return (
-        A * (γ / (4 * np.pi)) ** 2 * (1 / ((ω - ω0) ** 2 + (γ / (4 * np.pi)) ** 2))
-        + offset
-    )
+    return A * (γ / 2) ** 2 * (1 / ((ω - ω0) ** 2 + (γ / 2) ** 2))
 
 
 def complex_lorentzian(ω, A, ω0, γ):
@@ -62,10 +58,10 @@ def complex_lorentzian(ω, A, ω0, γ):
     :param ω: Frequency array.
     :param A: Amplitude.
     :param ω0: Center frequency.
-    :param γ: Decay rate. The decay of an amplitude is :math:`\frac{γ}{2}`.
+    :param γ: Decay rate. The decay of a squared amplitude is :math:`2πγ`.
     """
 
-    return A * (γ / 2) * 1 / (-1j * (ω - ω0) - (γ / (4 * np.pi)))
+    return A * (γ / 2) * 1 / (-1j * (ω - ω0) - (γ / (2)))
 
 
 ###############################################################################
@@ -118,8 +114,8 @@ class RingdownPeakData:
     fft: np.ndarray
     """The fft amplitudes."""
 
-    normalized_power: np.ndarray
-    """The normalized power spectrum of the fft."""
+    power: np.ndarray
+    """The power spectrum of the fft."""
 
     peaks: np.ndarray
     """The indices of the peaks."""
@@ -141,6 +137,9 @@ class RingdownPeakData:
     Δpeak_widths: np.ndarray | None = None
     """The uncertainty in the peak widths."""
 
+    lorentz_params: list | None = None
+    """The lorentzian fit params to be fed into :any:`lorentzian`."""
+
     @property
     def is_refined(self) -> bool:
         """Whether the peaks have been refined with :any:`refine_peaks`."""
@@ -153,7 +152,7 @@ def find_peaks(
     window: tuple[float, float],
     prominence: float = 0.005,
 ) -> RingdownPeakData:
-    """Determine the peaks of the normalized power spectrum of the
+    """Determine the peaks of the power spectrum of the
     ringdown data.
 
     :param data: The oscilloscope data.
@@ -174,11 +173,13 @@ def find_peaks(
     freq_step = freq[1] - freq[0]
 
     power = np.abs(fft) ** 2
-    power /= power.max()
 
     distance = params.fδ_guess / 2 / freq_step
     peaks, peak_info = scipy.signal.find_peaks(
-        power, distance=distance, wlen=distance // 4, prominence=prominence
+        power / power.max(),
+        distance=distance,
+        wlen=distance // 4,
+        prominence=prominence,
     )
 
     peak_freqs = freq[peaks]
@@ -189,7 +190,7 @@ def find_peaks(
         peaks=peaks,
         peak_freqs=peak_freqs,
         peak_info=peak_info,
-        normalized_power=power,
+        power=power,
     )
 
 
@@ -209,12 +210,13 @@ def refine_peaks(
     peaks = dataclasses.replace(peaks)
     freqs = peaks.freq
     peak_freqs = peaks.peak_freqs
-    power = peaks.normalized_power
+    power = peaks.power
 
     new_freqs = []
     new_widths = []
     Δfreqs = []
     Δwidths = []
+    lorentz_params = []
 
     window = params.η_guess * 3
     deleted_peaks = []
@@ -223,10 +225,23 @@ def refine_peaks(
         windowed_freqs = freqs[mask]
         windowed_power = power[mask]
 
-        p0 = [1, peak_freq, params.η_guess, 0]
+        scale_freqs = windowed_freqs[-1] - windowed_freqs[0]
+        root_freq = windowed_freqs[0]
+        scale_power = windowed_power.max()
+
+        windowed_freqs -= root_freq
+        windowed_freqs /= scale_freqs
+
+        windowed_power /= scale_power
+
+        p0 = [
+            peaks.power[peaks.peaks[i]] / scale_power,
+            (peak_freq - root_freq) / scale_freqs,
+            params.η_guess / scale_freqs,
+        ]
         bounds = (
-            [0, windowed_freqs[0], 0, 0],
-            [np.inf, windowed_freqs[-1], np.inf, 1],
+            [0, windowed_freqs[0], 0],
+            [np.inf, windowed_freqs[-1], np.inf],
         )
 
         try:
@@ -238,6 +253,11 @@ def refine_peaks(
                 bounds=bounds,
             )
             perr = np.sqrt(np.diag(pcov))
+            popt[0] = popt[0] * scale_power
+            popt[1] = popt[1] * scale_freqs + root_freq
+            popt[2] = popt[2] * scale_freqs
+
+            lorentz_params.append(popt)
 
             if perr[1] > uncertainty_threshold * params.fΩ_guess:
                 deleted_peaks.append(i)
@@ -260,6 +280,7 @@ def refine_peaks(
     peaks.Δpeak_freqs = np.array(Δfreqs)
     peaks.peak_widths = np.array(new_widths)
     peaks.Δpeak_widths = np.array(Δwidths)
+    peaks.lorentz_params = lorentz_params
 
     return peaks
 
@@ -450,7 +471,9 @@ def extract_Ω_δ(
     costs = [cost / len(ladder) for cost, ladder in zip(costs, ladders)]
 
     if len(costs) == 0:
-        raise ValueError("No valid ladders/spectra found.")
+        print("No valid ladders/spectra found.")
+
+        return Ω, ΔΩ, None, None, None
 
     best = np.argmin(costs)
     best_ladder = ladders[best]

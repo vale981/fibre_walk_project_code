@@ -26,7 +26,13 @@ class Params:
     """Mode splitting in units of :any:`Ω`."""
 
     η: float = 0.5
-    """Decay rate :math:`\eta/2` of the system in angular frequency units."""
+    """Decay rate :math:`\eta/2` of the system in linear frequency units.
+
+    Squared amplitudes decay like :math:`exp(-2π η t)`.
+    """
+
+    η_hybrid: float | None = None
+    """Decay rate :math:`\eta/2` of the hybridized modes. If ``None``, the rate :any:`η` will be used."""
 
     g_0: float = 0.01
     """Drive amplitude in units of :any:`Ω`."""
@@ -100,6 +106,9 @@ class Params:
             if self.rwa:
                 raise ValueError("Drive override is not compatible with the RWA.")
 
+        if self.η_hybrid is None:
+            self.η_hybrid = self.η
+
     def periods(self, n: float):
         """
         Returns the number of periods of the system that correspond to
@@ -112,7 +121,7 @@ class Params:
         Returns the number of lifetimes of the system that correspond to
         `n` cycles.
         """
-        return 2 * n / self.η
+        return 2 * n / (self.η * np.pi * 2)
 
     @property
     def rabi_splitting(self):
@@ -151,7 +160,10 @@ class RuntimeParams:
             )
         )
 
-        decay_rates = -1j * np.repeat(params.η / 2, 2 * params.N + 2)
+        decay_rates = -1j * np.repeat(np.pi * params.η, 2 * params.N + 2)
+        if params.η_hybrid:
+            decay_rates[[0, 1]] = -1j * np.pi * np.repeat(params.η_hybrid, 2)
+
         Ωs = freqs + decay_rates
 
         self.drive_frequencies, self.detunings, self.g, a_shift = (
@@ -160,10 +172,13 @@ class RuntimeParams:
         if params.drive_override is not None:
             self.drive_frequencies = params.drive_override[0]
             self.g = params.drive_override[1]
-
             a_shift = 0
             self.detunings *= 0
-            self.g *= params.g_0 / np.sqrt(np.sum(self.g**2))
+
+            norm = np.sqrt(np.sum(self.g**2))
+
+            if norm > 0:
+                self.g *= params.g_0
 
         self.g *= 2 * np.pi
         self.Ωs = Ωs
@@ -183,7 +198,8 @@ class RuntimeParams:
             + decay_rates
         )
 
-        self.bath_ε = 2 * np.pi * self.detunings - 1j * params.η / 2
+        self.bath_ε = 2 * np.pi * self.detunings - 1j * 2 * np.pi * params.η / 2
+
         self.a_shift = 2 * np.pi * a_shift
         self.detuned_Ωs = freqs - self.ε.real
 
@@ -295,7 +311,6 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
                     runtime_params.detuning_matrix,
                     runtime_params.a_weights,
                 )
-
         if (params.laser_off_time is None) or (t < params.laser_off_time):
             freqs = laser_frequency(params, t) - runtime_params.detuned_Ωs.real
 
@@ -361,17 +376,16 @@ def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     """
 
     runtime = RuntimeParams(params)
-    rotating = amplitudes * np.exp(-1j * runtime.detuned_Ωs[:, None] * t[None, :])
+
+    laser_times = (
+        laser_frequency(params, t) + 2 * np.pi * params.measurement_detuning
+    ) * t
+    rotating = amplitudes.copy() * np.exp(
+        -1j * (runtime.detuned_Ωs[:, None] * t[None, :] - laser_times[None, :])
+    )
     rotating[0:2, :] *= runtime.a_weights[:, None].conjugate()
 
-    return (
-        np.sum(rotating, axis=0)
-        * np.exp(
-            1j
-            * (laser_frequency(params, t) + 2 * np.pi * params.measurement_detuning)
-            * t
-        )
-    ).imag
+    return (np.sum(rotating, axis=0)).imag
 
 
 def bath_energies(N_couplings: int, ω_c: float) -> np.ndarray:
