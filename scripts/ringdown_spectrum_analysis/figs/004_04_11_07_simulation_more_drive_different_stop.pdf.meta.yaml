@@ -1,0 +1,8 @@
+change_id: rxuqwvztlzswqyxoqznpmqxryltwylus
+commit_id: 49cf4c2df3390eccf280655dcb4e5e0226ab39d6
+description: get the results of the 11_07 data in order
+extra_meta: null
+function: <module>
+name: 004_04_11_07_simulation_more_drive_different_stop
+refers_to: ./figs/004_04_11_07_simulation_more_drive_different_stop.pdf
+source: scripts/ringdown_spectrum_analysis/004_simulation_11_07.py

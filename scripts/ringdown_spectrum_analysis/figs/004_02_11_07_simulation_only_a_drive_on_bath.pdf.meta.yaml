@@ -1,0 +1,8 @@
+change_id: rxuqwvztlzswqyxoqznpmqxryltwylus
+commit_id: a7cabde9a6e79e6da95e560d527ebb62460a1f61
+description: get the results of the 11_07 data in order
+extra_meta: null
+function: <module>
+name: 004_02_11_07_simulation_only_a_drive_on_bath
+refers_to: ./figs/004_02_11_07_simulation_only_a_drive_on_bath.pdf
+source: scripts/ringdown_spectrum_analysis/004_simulation_11_07.py

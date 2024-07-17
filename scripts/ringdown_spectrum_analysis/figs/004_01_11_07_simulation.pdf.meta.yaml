@@ -1,0 +1,8 @@
+change_id: rxuqwvztlzswqyxoqznpmqxryltwylus
+commit_id: 2b802eaf83102e9e09df2a8cfcc1126dffc07ee2
+description: get the results of the 11_07 data in order
+extra_meta: null
+function: <module>
+name: 004_01_11_07_simulation
+refers_to: ./figs/004_01_11_07_simulation.pdf
+source: scripts/ringdown_spectrum_analysis/004_simulation_11_07.py

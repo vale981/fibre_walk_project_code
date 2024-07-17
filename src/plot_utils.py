@@ -16,6 +16,7 @@ def noop_if_interactive(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
         if hasattr(sys, "ps1"):
+            print("NOOP as the session is interactive!")
             return
 
         return f(*args, **kwargs)

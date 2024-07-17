@@ -1,0 +1,6 @@
+change_id: rxuqwvztlzswqyxoqznpmqxryltwylus
+commit_id: 60170ef1e3719c038cfca3e5cabd76e20f487ea5
+description: get the results of the 11_07 data in order
+function: <module>
+refers_to: outputs/003_results.pkl
+source: scripts/ringdown_spectrum_analysis/003_11_07_data_analysis.py
