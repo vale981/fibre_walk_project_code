@@ -60,7 +60,7 @@ def make_params_and_solve(
 
         case "hybrid_to_one_bath":
             params.drive_override = (
-                np.array([params.Ω * (1 - params.δ), params.Ω * params.δ * 2]),
+                np.array([params.Ω * (1 - params.δ), params.Ω * (1 + params.δ)]),
                 np.ones(2),
             )
 
@@ -163,7 +163,7 @@ def generate_phase_one_data(
     ax_realtime.set_title("Photo-diode AC Intensity")
 
     # now we plot the power spectrum
-    window = (float(params.laser_off_time or 0), t[-1])
+    window = (float(params.laser_off_time) or 0, t[-1])
     # window = (0, float(params.laser_off_time or 0))
 
     ringdown_params = RingdownParams(
@@ -260,3 +260,22 @@ if __name__ == "__main__":
     """,
     )
     save_figure(fig, "004_05_11_07_simulation_only_a_drive_on_bath")
+
+    fig = generate_phase_one_data(
+        laser_detuning=13 - 3.25,
+        g_0=0.3,
+        drive_mode="hybrid_to_one_bath",
+        off_factor=0.4,
+        noise=True,
+        yscale="log",
+        extra_title="""
+        The same as the first simulation, but with the laser at a bath mode and driving at Ω-δ,Ω+δ i.e coupling Bath-Hyb-Hyb-Bath.
+
+    From a simple analytical estimate, this can be seen as advantageous!
+
+    The log-scale on the spectrum is necessary as the bath mode gets way more excited! However the noise magnitude is the same as in the other simulations.
+
+    Timing is /not/ important here *if* the drive amplitude is low engough!
+    """,
+    )
+    save_figure(fig, "004_06_11_07_bhhb_best")

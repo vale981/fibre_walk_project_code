@@ -136,6 +136,8 @@ def write_meta(path, **kwargs):
 
 @noop_if_interactive
 def save_figure(fig, name, extra_meta=None, *args, **kwargs):
+    import pickle
+
     dir = pathlib.Path(f"./figs/")
     dir.mkdir(exist_ok=True)
     fig.tight_layout()
@@ -146,6 +148,10 @@ def save_figure(fig, name, extra_meta=None, *args, **kwargs):
     plt.savefig(f"./figs/{name}.png", *args, dpi=600, **kwargs)
 
     print(f"Figure saved as ./figs/{name}.pdf")
+    pickle_path = dir / f"{name}.pkl"
+
+    with open(pickle_path, "wb") as f:
+        pickle.dump(fig, f)
 
 
 @noop_if_interactive

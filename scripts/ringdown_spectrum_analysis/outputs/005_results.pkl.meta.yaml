@@ -1,0 +1,6 @@
+change_id: rxrtsmmqspvtqxwvltyzqxntmowrvuxk
+commit_id: e2b1c2a8ffea1ab07e45ab07b0a3a66d4ae6207f
+description: ''
+function: <module>
+refers_to: outputs/005_results.pkl
+source: scripts/ringdown_spectrum_analysis/005_11_07_analysis_on_bath.py

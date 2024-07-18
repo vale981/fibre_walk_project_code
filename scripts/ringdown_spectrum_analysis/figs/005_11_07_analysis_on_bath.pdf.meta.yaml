@@ -1,0 +1,8 @@
+change_id: rxrtsmmqspvtqxwvltyzqxntmowrvuxk
+commit_id: 79ac3014d82cc3dbecb65c44ae375c44019795d3
+description: ''
+extra_meta: null
+function: <module>
+name: 005_11_07_analysis_on_bath
+refers_to: ./figs/005_11_07_analysis_on_bath.pdf
+source: scripts/ringdown_spectrum_analysis/005_11_07_analysis_on_bath.py

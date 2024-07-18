@@ -1,0 +1,8 @@
+change_id: rxrtsmmqspvtqxwvltyzqxntmowrvuxk
+commit_id: 27d6a0603bbd5f1af744cecebc9d34e9e817f417
+description: ''
+extra_meta: null
+function: <module>
+name: 004_06_11_07_bhhb_best
+refers_to: ./figs/004_06_11_07_bhhb_best.pdf
+source: scripts/ringdown_spectrum_analysis/004_simulation_11_07.py
