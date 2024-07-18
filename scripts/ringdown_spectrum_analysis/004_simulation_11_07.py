@@ -251,9 +251,10 @@ if __name__ == "__main__":
     save_figure(fig, "004_04_11_07_simulation_more_drive_different_stop")
 
     fig = generate_phase_one_data(
-        laser_detuning=13 * 0.8,
+        laser_detuning=13 - 3.25,
         g_0=0.3,
         yscale="log",
+        noise=True,
         extra_title="""
         The same as the first simulation, but with the laser at a bath mode. The hybridized modes gain no population.
     """,
