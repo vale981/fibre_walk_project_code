@@ -260,17 +260,17 @@ def eom_drive(t, x, ds, ωs, det_matrix, a_weights):
     # print(np.min(test))
     # print(np.argmin(test, keepdims=True))
 
-    det_matrix = np.exp(-1j * det_matrix * t)
+    rot_matrix = np.exp(-1j * det_matrix * t)
     for i, weight in enumerate(a_weights):
-        det_matrix[i, 2:] *= weight
-        det_matrix[2:, i] *= weight.conjugate()
+        rot_matrix[i, 2:] *= weight
+        rot_matrix[2:, i] *= weight.conjugate()
 
-    # FIXME: that's not strictly right for the non symmetric damping
+    # # FIXME: that's not strictly right for the non symmetric damping
     prod = a_weights[0] * a_weights[1].conj()
-    det_matrix[0, 1] *= prod
-    det_matrix[1, 0] *= prod.conjugate()
+    rot_matrix[0, 1] *= prod
+    rot_matrix[1, 0] *= prod.conjugate()
 
-    driven_x = np.sum(2 * ds * np.sin(2 * np.pi * ωs * t)) * (det_matrix @ x)
+    driven_x = np.sum(2 * ds * np.sin(2 * np.pi * ωs * t)) * (rot_matrix @ x)
 
     return driven_x
 
@@ -360,7 +360,7 @@ def solve(t: np.ndarray, params: Params, **kwargs):
         (np.min(t), np.max(t)),
         initial,
         vectorized=False,
-        max_step=np.pi / (params.Ω * params.N),
+        max_step=1 / 2 * np.pi / (params.Ω * (2 * params.N + 2)),
         t_eval=t,
         method="DOP853",
         atol=1e-7,
@@ -383,6 +383,7 @@ def output_signal(t: np.ndarray, amplitudes: np.ndarray, params: Params):
     rotating = amplitudes.copy() * np.exp(
         -1j * (runtime.detuned_Ωs[:, None] * t[None, :] - laser_times[None, :])
     )
+
     rotating[0:2, :] *= runtime.a_weights[:, None].conjugate()
 
     return (np.sum(rotating, axis=0)).imag
