@@ -238,16 +238,6 @@ def plot_spectrum_and_peak_info(
     ax_angle.clear()
     ax_angle.set_ylabel("Phase (rad)")
 
-    unwrapped = np.unwrap(np.angle(peaks.fft) * 2) / 2
-    ax_angle.plot(
-        peaks.freq,
-        unwrapped,
-        linestyle="--",
-        alpha=0.5,
-        linewidth=0.5,
-        zorder=10,
-    )
-
     if annotate:
         for i, (freq, height, lorentz) in enumerate(
             zip(peaks.peak_freqs, peaks.power[peaks.peaks], peaks.lorentz_params)

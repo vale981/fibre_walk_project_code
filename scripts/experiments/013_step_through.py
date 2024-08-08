@@ -58,7 +58,7 @@ def process_shots(t, solutions, noise_amplitude, params):
         freq, fft = fourier_transform(
             t,
             signal,
-            low_cutoff=0.0 * params.Ω,
+            low_cutoff=0.5 * params.Ω,
             high_cutoff=params.Ω * (params.N + 1),
             window=window,
         )
@@ -75,41 +75,57 @@ def process_shots(t, solutions, noise_amplitude, params):
 
 def plot_power_spectrum(ax_spectrum, freq, average_power_spectrum, params):
     offset = np.median(average_power_spectrum)
-    ax_spectrum.plot(freq, average_power_spectrum)
+    # ax_spectrum.plot(freq, average_power_spectrum)
+    # runtime = RuntimeParams(params)
+    # lorentz_freqs = np.linspace(freq.min(), freq.max(), 10000)
+    # fake_spectrum = np.zeros_like(lorentz_freqs)
 
-    runtime = RuntimeParams(params)
-    lorentz_freqs = np.linspace(freq.min(), freq.max(), 10000)
-    fake_spectrum = np.zeros_like(lorentz_freqs)
+    # for i, peak_freq in enumerate(runtime.Ωs):
+    #     pos = np.abs(
+    #         params.measurement_detuning
+    #         - peak_freq.real / (2 * np.pi)
+    #         + params.δ * params.Ω
+    #         + params.laser_detuning,
+    #     )
 
-    for i, peak_freq in enumerate(runtime.Ωs):
-        pos = np.abs(
-            params.measurement_detuning
-            - peak_freq.real / (2 * np.pi)
-            + params.δ * params.Ω
-            + params.laser_detuning,
-        )
+    #     ax_spectrum.axvline(
+    #         pos,
+    #         color="red",
+    #         linestyle="--",
+    #         zorder=-100,
+    #     )
 
-        ax_spectrum.axvline(
-            pos,
-            color="red",
-            linestyle="--",
-            zorder=-100,
-        )
+    #     amplitude = average_power_spectrum[np.argmin(abs(freq - pos))] - offset
+    #     ax_spectrum.annotate(
+    #         mode_name(i),
+    #         (
+    #             pos + 0.1,
+    #             (amplitude + offset) * (1 if peak_freq.real < 0 else 1.1),
+    #         ),
+    #     )
 
-        amplitude = average_power_spectrum[np.argmin(abs(freq - pos))] - offset
-        ax_spectrum.annotate(
-            mode_name(i),
-            (
-                pos + 0.1,
-                (amplitude + offset) * (1 if peak_freq.real < 0 else 1.1),
-            ),
-        )
+    #     fake_spectrum += lorentzian(
+    #         lorentz_freqs, amplitude, pos, peak_freq.imag / np.pi
+    #     )
 
-        fake_spectrum += lorentzian(
-            lorentz_freqs, amplitude, pos, peak_freq.imag / np.pi
-        )
+    # ax_spectrum.plot(lorentz_freqs, fake_spectrum + offset)
 
-    ax_spectrum.plot(lorentz_freqs, fake_spectrum + offset)
+    ringdown_params = RingdownParams(
+        fω_shift=params.measurement_detuning,
+        mode_window=(5, 5),
+        fΩ_guess=params.Ω,
+        fδ_guess=params.Ω * params.δ,
+        η_guess=0.5,
+        absolute_low_cutoff=1,
+    )
+
+    peak_info = find_peaks(
+        freq, average_power_spectrum, ringdown_params, prominence=0.001
+    )
+    peak_info = refine_peaks(peak_info, ringdown_params)
+    peak_info.power = average_power_spectrum
+    plot_spectrum_and_peak_info(ax_spectrum, peak_info, ringdown_params, annotate=True)
+    print(peak_info.peak_freqs)
 
 
 def generate_data(
@@ -180,6 +196,8 @@ def generate_data(
     plot_power_spectrum(ax_single, freq, spectrum_on_resonance, params)
 
     runtime = RuntimeParams(params)
+    print(runtime.Ωs.real / (2 * np.pi) - params.laser_detuning)
+
     # ax_spectrum.set_yscale(yscale)
 
     return fig
@@ -190,10 +208,10 @@ if __name__ == "__main__":
     fig = generate_data(
         g_0=1,
         η_factor=5,
-        noise_amplitude=0.25,
+        noise_amplitude=0.25 * 0,
         N=2,
         eom_ranges=(1.1, 1.3),
-        eom_steps=100,
+        eom_steps=20,
         small_loop_detuning=0,
         laser_detuning=0,
         excitation_lifetimes=2,

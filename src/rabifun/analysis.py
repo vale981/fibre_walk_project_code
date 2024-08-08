@@ -111,9 +111,6 @@ class RingdownPeakData:
     freq: np.ndarray
     """The fft frequency array."""
 
-    fft: np.ndarray
-    """The fft amplitudes."""
-
     power: np.ndarray
     """The power spectrum of the fft."""
 
@@ -147,36 +144,26 @@ class RingdownPeakData:
 
 
 def find_peaks(
-    data: ScanData,
+    freq: np.ndarray,
+    power_spectrum: np.ndarray,
     params: RingdownParams,
-    window: tuple[float, float],
     prominence: float = 0.005,
 ) -> RingdownPeakData:
     """Determine the peaks of the power spectrum of the
     ringdown data.
 
-    :param data: The oscilloscope data.
+    :param freq: The frequency axis data.
+    :params power_spectrum: The FFT power spectrum.
     :param params: The ringdown parameters, see :any:`RingdownParams`.
-    :param window: The time window to consider.  (to be automated)
     :param prominence: The prominence (vertical distance of peak from
         surrounding valleys) of the peaks.
     """
 
-    freq, fft, t = fourier_transform(
-        data.time,
-        data.output,
-        window=window,
-        low_cutoff=params.low_cutoff,
-        high_cutoff=params.high_cutoff,
-        ret_time=True,
-    )
     freq_step = freq[1] - freq[0]
-
-    power = np.abs(fft) ** 2
 
     distance = params.fδ_guess / 2 / freq_step
     peaks, peak_info = scipy.signal.find_peaks(
-        power / power.max(),
+        power_spectrum / power_spectrum.max(),
         distance=distance,
         wlen=distance // 4,
         prominence=prominence,
@@ -186,11 +173,10 @@ def find_peaks(
 
     return RingdownPeakData(
         freq=freq,
-        fft=fft,
         peaks=peaks,
         peak_freqs=peak_freqs,
         peak_info=peak_info,
-        power=power,
+        power=power_spectrum,
     )
 
 
