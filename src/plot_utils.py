@@ -7,6 +7,8 @@ import inspect
 import subprocess
 import pathlib
 import sys
+import numpy as np
+
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -177,3 +179,51 @@ def quick_load_pickle(name):
 
     with open(path, "rb") as f:
         return pickle.load(f)
+
+
+def scientific_round(val, *err, retprec=False):
+    """Scientifically rounds the values to the given errors."""
+    val, err = np.asarray(val), np.asarray(err)
+    if len(err.shape) == 1:
+        err = np.array([err])
+        err = err.T
+    err = err.T
+
+    if err.size == 1 and val.size > 1:
+        err = np.ones_like(val) * err
+
+    if len(err.shape) == 0:
+        err = np.array([err])
+
+    if val.size == 1 and err.shape[0] > 1:
+        val = np.ones_like(err) * val
+
+    i = np.floor(np.log10(err))
+    first_digit = (err // 10**i).astype(int)
+    prec = (-i + np.ones_like(err) * (first_digit <= 3)).astype(int)
+    prec = np.max(prec, axis=1)
+
+    def smart_round(value, precision):
+        value = np.round(value, precision)
+        if precision <= 0:
+            value = value.astype(int)
+        return value
+
+    if val.size > 1:
+        rounded = np.empty_like(val)
+        rounded_err = np.empty_like(err)
+        for n, (value, error, precision) in enumerate(zip(val, err, prec)):
+            rounded[n] = smart_round(value, precision)
+            rounded_err[n] = smart_round(error, precision)
+
+        if retprec:
+            return rounded, rounded_err, prec
+        else:
+            return rounded, rounded_err
+
+    else:
+        prec = prec[0]
+        if retprec:
+            return (smart_round(val, prec), *smart_round(err, prec)[0], prec)
+        else:
+            return (smart_round(val, prec), *smart_round(err, prec)[0])

@@ -225,24 +225,38 @@ def plot_spectrum_and_peak_info(
     """
 
     ax.clear()
-    ax.plot(peaks.freq, peaks.power, label="FFT Power", color="C0")
     ax.plot(
-        peaks.peak_freqs,
-        peaks.power[peaks.peaks],
-        "x",
-        label="Peaks",
-        color="C2",
+        peaks.freq,
+        peaks.power,
+        label="FFT Power",
+        color="C0",
+        linewidth=0.5,
+        marker="o",
+        markersize=2,
     )
 
-    ax_angle = ax.twinx()
-    ax_angle.clear()
-    ax_angle.set_ylabel("Phase (rad)")
-
     if annotate:
-        for i, (freq, height, lorentz) in enumerate(
-            zip(peaks.peak_freqs, peaks.power[peaks.peaks], peaks.lorentz_params)
+        for i, (freq, Δfreq, lorentz) in enumerate(
+            zip(peaks.peak_freqs, peaks.Δpeak_freqs, peaks.lorentz_params)
         ):
-            ax.annotate(f"{i} ({freq:.2e})", (freq, height))
+            # ax.plot(
+            #     freq,
+            #     max(lorentz[0], 1),
+            #     "x",
+            #     label="Peaks",
+            #     color="C2",
+            # )
+
+            roundfreq, rounderr = scientific_round(freq, Δfreq)
+
+            t = ax.text(
+                freq,
+                lorentz[0],
+                rf"{i} (${roundfreq}\pm {rounderr}$)",
+                fontsize=20,
+            )
+            t.set_bbox(dict(facecolor="white", alpha=1, edgecolor="white"))
+
             ax.plot(
                 peaks.freq,
                 lorentzian(peaks.freq, *lorentz),
@@ -261,4 +275,5 @@ def plot_spectrum_and_peak_info(
         zorder=-10,
         label="Frequency Shift",
     )
+    ax.set_xlim(peaks.freq[0], peaks.freq[-1])
     ax.legend()

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from scipy.optimize import Bounds
 from enum import Enum
+import lmfit
 
 
 def fourier_transform(
@@ -180,8 +181,51 @@ def find_peaks(
     )
 
 
+def offset(ω, offset):
+    return offset
+
+
+def filter_peaks(
+    peaks: RingdownPeakData,
+    params: RingdownParams,
+    uncertainty_threshold: float = 0.2,
+    height_cutoff: float = 0.1,
+    to_be_deleted: list = [],
+):
+    deleted_peaks = []
+    for i in reversed(range(len(peaks.peak_freqs))):
+        A, ω0, γ = peaks.lorentz_params[i]
+        Δω0, Δγ = peaks.Δpeak_freqs[i], peaks.Δpeak_widths[i]
+
+        if (
+            i in to_be_deleted
+            or Δω0 > uncertainty_threshold * params.fΩ_guess
+            or A < height_cutoff
+            or A > 1
+            or Δγ > uncertainty_threshold * params.fΩ_guess
+        ):
+            np.delete(peaks.peaks, i)
+            np.delete(peaks.peak_freqs, i)
+            np.delete(peaks.Δpeak_freqs, i)
+            np.delete(peaks.peak_widths, i)
+            np.delete(peaks.Δpeak_widths, i)
+
+            del peaks.lorentz_params[i]
+            deleted_peaks.append(i)
+            continue
+
+    for key, value in peaks.peak_info.items():
+        if isinstance(value, np.ndarray):
+            peaks.peak_info[key] = np.delete(value, deleted_peaks)
+
+    return peaks
+
+
 def refine_peaks(
-    peaks: RingdownPeakData, params: RingdownParams, uncertainty_threshold: float = 0.1
+    peaks: RingdownPeakData,
+    params: RingdownParams,
+    uncertainty_threshold: float = 0.2,
+    height_cutoff: float = 0.1,
 ):
     """
     Refine the peak positions and frequencies by fitting Lorentzians.
@@ -204,8 +248,9 @@ def refine_peaks(
     Δwidths = []
     lorentz_params = []
 
-    window = params.η_guess * 3
+    window = params.η_guess * 1
     deleted_peaks = []
+
     for i, peak_freq in enumerate(peak_freqs):
         mask = (freqs > peak_freq - window) & (freqs < peak_freq + window)
         windowed_freqs = freqs[mask]
@@ -231,7 +276,7 @@ def refine_peaks(
         )
 
         try:
-            popt, pcov = scipy.optimize.curve_fit(
+            scipy_popt, pcov = scipy.optimize.curve_fit(
                 lorentzian,
                 windowed_freqs,
                 windowed_power,
@@ -239,20 +284,28 @@ def refine_peaks(
                 bounds=bounds,
             )
             perr = np.sqrt(np.diag(pcov))
-            popt[0] = popt[0] * scale_power
-            popt[1] = popt[1] * scale_freqs + root_freq
-            popt[2] = popt[2] * scale_freqs
 
-            lorentz_params.append(popt)
+            if (
+                perr[1] * scale_freqs > uncertainty_threshold * params.fΩ_guess
+                or scipy_popt[0] * scale_power / np.max(power) < height_cutoff
+            ):
+                deleted_peaks.append(i)
+                continue
+
+            scipy_popt[0] = scipy_popt[0] * scale_power
+            scipy_popt[1] = scipy_popt[1] * scale_freqs + root_freq
+            scipy_popt[2] = scipy_popt[2] * scale_freqs
+
+            lorentz_params.append(scipy_popt)
 
             if perr[1] > uncertainty_threshold * params.fΩ_guess:
                 deleted_peaks.append(i)
                 continue
 
-            new_freqs.append(popt[1])
+            new_freqs.append(scipy_popt[1])
             Δfreqs.append(perr[1])
 
-            new_widths.append(popt[2])
+            new_widths.append(scipy_popt[2])
             Δwidths.append(perr[2])
         except:
             deleted_peaks.append(i)
@@ -268,10 +321,63 @@ def refine_peaks(
     peaks.Δpeak_widths = np.array(Δwidths)
     peaks.lorentz_params = lorentz_params
 
-    return peaks
+    total_model = None
+    model_params = []
 
+    global_power_scale = 1  # power.max()
+    scaled_power = power / global_power_scale
 
-import matplotlib.pyplot as plt
+    for i, (A, ω0, γ) in enumerate(lorentz_params):
+        model = lmfit.Model(lorentzian, prefix=f"peak_{i}_")
+
+        initial_params = model.make_params(
+            A=dict(value=A / global_power_scale, min=0, max=np.inf),
+            ω0=dict(value=ω0, min=0, max=np.inf),
+            γ=dict(value=γ, min=0, max=np.inf),
+        )
+
+        if total_model is None:
+            total_model = model
+        else:
+            total_model += model
+
+        model_params.append(initial_params)
+
+    aggregate_params = total_model.make_params()
+    for lm_params in model_params:
+        aggregate_params.update(lm_params)
+
+    offset_model = lmfit.Model(offset)
+    aggregate_params.update(offset_model.make_params(offset=0, min=0, max=1))
+    total_model += offset_model
+
+    lm_result = total_model.fit(scaled_power, params=aggregate_params, ω=freqs)
+
+    for i in reversed(range(len(peaks.peak_freqs))):
+        peak_prefix = f"peak_{i}_"
+
+        A, ω0, γ = (
+            lm_result.best_values[peak_prefix + "A"],
+            lm_result.best_values[peak_prefix + "ω0"],
+            lm_result.best_values[peak_prefix + "γ"],
+        )
+
+        ΔA, Δω0, Δγ = (
+            lm_result.params[peak_prefix + "A"].stderr,
+            lm_result.params[peak_prefix + "ω0"].stderr,
+            lm_result.params[peak_prefix + "γ"].stderr,
+        )
+
+        peaks.peak_freqs[i] = ω0
+        peaks.Δpeak_freqs[i] = Δω0
+
+        peaks.peak_widths[i] = γ
+        peaks.Δpeak_widths[i] = Δγ
+
+        peaks.lorentz_params[i] = A, ω0, γ
+
+    peaks = filter_peaks(peaks, params, uncertainty_threshold, height_cutoff)
+    return peaks, lm_result
 
 
 class StepType(Enum):

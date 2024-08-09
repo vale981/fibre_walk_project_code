@@ -136,6 +136,8 @@ class RuntimeParams:
     """Secondary Parameters that are required to run the simulation."""
 
     def __init__(self, params: Params):
+        self.params = params
+
         H_A = np.array(
             [
                 [0, params.δ],
@@ -215,17 +217,34 @@ class RuntimeParams:
         """The mode splitting of the system in *frequency units*."""
         return (self.Ωs[1] - self.Ωs[0]).real / (4 * np.pi)
 
+    @property
+    def ringdown_frequencies(self) -> np.ndarray:
+        """
+        The frequencies that are detectable in the ringdown spectrum.
+        In essence, those are the eigenfrequencies of the system,
+        shifted by laser detuning and measurement detuning.
+        """
+
+        return np.abs(
+            self.params.measurement_detuning
+            - self.Ωs.real / (2 * np.pi)
+            + self.params.δ * self.params.Ω
+            + self.params.laser_detuning
+        )
+
 
 def time_axis(
     params: Params,
     lifetimes: float | None = None,
     recurrences: float | None = None,
+    total_time: float | None = None,
     resolution: float = 1,
 ):
     """Generate a time axis for the simulation.
 
     :param params: system parameters
     :param lifetimes: number of lifetimes to simulate
+    :params total_time: the total timespan to set of the time array
     :param resolution: time resolution
 
         Setting this to `1` will give the time axis just enough
@@ -238,6 +257,8 @@ def time_axis(
         tmax = params.lifetimes(lifetimes)
     elif recurrences is not None:
         tmax = recurrence_time(params) * recurrences
+    elif total_time:
+        tmax = total_time
     else:
         raise ValueError("Either lifetimes or recurrences must be set.")
 
@@ -437,12 +458,17 @@ def drive_frequencies_and_amplitudes(
     return ωs, Δs, amplitudes, a_shift
 
 
-def mode_name(mode: int):
+def mode_name(mode: int, N: int | None = None):
     """Return the name of the mode."""
     if mode == 0:
-        return "anti-A"
+        return r"$\bar{A}$"
     if mode == 1:
         return "A"
+
+    if N:
+        bath_mode = mode - 2
+        if mode >= N:
+            return rf"$\bar{{B}}{bath_mode % N + 1}$"
 
     return f"B{mode - 1}"
 
