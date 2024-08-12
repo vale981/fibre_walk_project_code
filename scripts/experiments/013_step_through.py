@@ -112,7 +112,7 @@ def plot_power_spectrum(
     )
 
     peak_info = find_peaks(
-        freq, average_power_spectrum, ringdown_params, prominence=0.1
+        freq, average_power_spectrum, ringdown_params, prominence=0.1 / 2
     )
     peak_info, lm_result = refine_peaks(peak_info, ringdown_params, height_cutoff=0.05)
     peak_info.power = average_power_spectrum
@@ -262,9 +262,9 @@ def generate_data(
 # %% save
 if __name__ == "__main__":
     fig = generate_data(
-        g_0=1,
+        g_0=0.5,
         η_factor=5,
-        noise_amplitude=2e-3,
+        noise_amplitude=2e-4,
         N=2,
         eom_ranges=(1.1, 1.35),
         eom_steps=100,

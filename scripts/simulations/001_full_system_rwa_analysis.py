@@ -5,13 +5,14 @@ import itertools
 # %% interactive
 
 
-def make_params(ω_c=0.1 / 2, N=10, gbar=1 / 3, compensate=2):
+def make_params(ω_c=0.1, N=10, gbar=1 / 3, compensate=1):
     """
     Make a set of parameters for the system with the current
     best-known settings.
     """
     return Params(
-        η=0.5,
+        η=0.2,
+        η_hybrid=0.2,
         Ω=13,
         δ=1 / 4,
         ω_c=ω_c,
@@ -40,8 +41,8 @@ def decay_rwa_analysis():
     that still kinda works.).
     """
 
-    ω_c = 0.1 / 2
-    Ns = [5, 10, 20]
+    ω_c = 0.1
+    Ns = [5, 10]
     gbar = 1 / 4
 
     fig = make_figure("decay_test", figsize=(15, len(Ns) * 3))
@@ -105,7 +106,7 @@ def decay_rwa_analysis():
 
     fig.tight_layout()
     fig.suptitle(
-        f"Decay test for η={params.η}MHz, Ω={params.Ω}MHz, δ/Ω={params.δ}, ω_c/Ω={params.ω_c}, g_0/ω_c={params.g_0/params.ω_c:.2f}"
+        f"Decay test for η/2π={params.η}MHz, Ω/2π={params.Ω}MHz, δ/Ω={params.δ}, ω_c/Ω={params.ω_c}, g_0/ω_c={params.g_0/params.ω_c:.2f}"
     )
 
     save_figure(fig, "001_decay_test", extra_meta=dict(params=param_dict, Ns=Ns))

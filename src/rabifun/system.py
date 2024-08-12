@@ -542,4 +542,6 @@ def correct_for_decay(solution, params):
 
     :returns: The corrected solution amplitudes.
     """
-    return solution.y * np.exp(params.η / 2 * solution.t[None, :])
+
+    runtime = RuntimeParams(params)
+    return solution.y * np.exp(-runtime.Ωs.imag[:, None] * solution.t[None, :])
