@@ -84,6 +84,9 @@ class Params:
     The drive strength is normalized to :any:`g_0`.
     """
 
+    drive_phases: np.ndarray | None = None
+    """The phase for each drive tone. If not specified, the phases are zero."""
+
     small_loop_detuning: float = 0
     """The detuning (in units of :any:`Ω`) of the small loop mode relative to the ``A`` mode."""
 
@@ -105,6 +108,12 @@ class Params:
 
             if self.rwa:
                 raise ValueError("Drive override is not compatible with the RWA.")
+
+        if self.drive_phases is not None:
+            if len(self.drive_phases) != self.N_couplings:
+                raise ValueError("Need as many drive phases as couplings.")
+        else:
+            self.drive_phases = np.zeros(self.N_couplings)
 
         if self.η_hybrid is None:
             self.η_hybrid = self.η
@@ -265,13 +274,14 @@ def time_axis(
     return np.arange(0, tmax, resolution * np.pi / (params.Ω * params.N))
 
 
-def eom_drive(t, x, ds, ωs, det_matrix, a_weights):
+def eom_drive(t, x, ds, ωs, φs, det_matrix, a_weights):
     """The electrooptical modulation drive.
 
     :param t: time
     :param x: amplitudes
     :param ds: drive amplitudes
     :param ωs: linear drive frequencies
+    :param φs: drive phases
     :param det_matrix: detuning matrix
     :param a_weights: weights of the A modes
     """
@@ -291,7 +301,7 @@ def eom_drive(t, x, ds, ωs, det_matrix, a_weights):
     rot_matrix[0, 1] *= prod
     rot_matrix[1, 0] *= prod.conjugate()
 
-    driven_x = np.sum(2 * ds * np.sin(2 * np.pi * ωs * t)) * (rot_matrix @ x)
+    driven_x = np.sum(2 * ds * np.sin(2 * np.pi * ωs * t + φs)) * (rot_matrix @ x)
 
     return driven_x
 
@@ -329,9 +339,11 @@ def make_righthand_side(runtime_params: RuntimeParams, params: Params):
                     x,
                     runtime_params.g,
                     runtime_params.drive_frequencies,
+                    params.drive_phases,
                     runtime_params.detuning_matrix,
                     runtime_params.a_weights,
                 )
+
         if (params.laser_off_time is None) or (t < params.laser_off_time):
             freqs = laser_frequency(params, t) - runtime_params.detuned_Ωs.real
 

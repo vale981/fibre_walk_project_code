@@ -218,7 +218,7 @@ def filter_peaks(
             i in to_be_deleted
             or Δω0 > uncertainty_threshold * params.fΩ_guess
             or A < height_cutoff
-            or A > 10
+            or A > 5
             or Δγ > uncertainty_threshold * params.fΩ_guess
         ):
             np.delete(peaks.peaks, i)
@@ -255,6 +255,9 @@ def refine_peaks(
         :any:`ringdown_params.fΩ_guess`.
     """
 
+    if len(peaks.peaks) == 0:
+        return peaks, None
+
     peaks = dataclasses.replace(peaks)
     freqs = peaks.freq
     peak_freqs = peaks.peak_freqs
@@ -288,7 +291,6 @@ def refine_peaks(
 
     initial_params = model.make_params(
         A=dict(value=1, min=0, max=np.inf),
-        ω0=dict(value=0, min=0, max=np.inf),
         γ=dict(value=params.η_guess, min=0, max=np.inf),
     )
 
