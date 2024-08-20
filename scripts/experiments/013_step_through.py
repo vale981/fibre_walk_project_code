@@ -11,6 +11,62 @@ from scipy.ndimage import rotate
 # %% interactive
 
 
+class WelfordAggregator:
+    """A class to aggregate values using the Welford algorithm.
+
+    The Welford algorithm is an online algorithm to calculate the mean
+    and variance of a series of values.
+
+    The aggregator keeps track of the number of samples the mean and
+    the variance.  Aggregation of identical values is prevented by
+    checking the sample index.  Tracking can be disabled by setting
+    the initial index to ``None``.
+
+    See also the `Wikipedia article
+    <https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm>`_.
+
+    :param first_value: The first value to aggregate.
+    """
+
+    __slots__ = ["n", "mean", "_m_2"]
+
+    def __init__(self, first_value: np.ndarray):
+        self.n = 1
+        self.mean = first_value
+        self._m_2 = np.zeros_like(first_value)
+
+    def update(self, new_value: np.ndarray):
+        """Updates the aggregator with a new value."""
+
+        self.n += 1
+        delta = new_value - self.mean
+        self.mean += delta / self.n
+        delta2 = new_value - self.mean
+        self._m_2 += np.abs(delta) * np.abs(delta2)
+
+    @property
+    def sample_variance(self) -> np.ndarray:
+        """
+        The empirical sample variance.  (:math:`\sqrt{N-1}`
+        normalization.)
+        """
+
+        if self.n == 1:
+            return np.zeros_like(self.mean)
+
+        return self._m_2 / (self.n - 1)
+
+    @property
+    def ensemble_variance(self) -> np.ndarray:
+        """The ensemble variance."""
+        return self.sample_variance / self.n
+
+    @property
+    def ensemble_std(self) -> np.ndarray:
+        """The ensemble standard deviation."""
+        return np.sqrt(self.ensemble_variance)
+
+
 def solve_shot(t, params, t_before, t_after):
     solution = solve(t, params)
     amps = solution.y[::, len(t_before) - 1 :]
@@ -18,7 +74,9 @@ def solve_shot(t, params, t_before, t_after):
     return t_after, amps
 
 
-def make_shots(params, total_lifetimes, eom_range, eom_steps, σ_modulation_time):
+def make_shots(
+    params, total_lifetimes, eom_range, eom_steps, σ_modulation_time, num_freq
+):
     solutions = []
 
     analyze_time = params.lifetimes(total_lifetimes) - params.laser_off_time
@@ -30,15 +88,13 @@ def make_shots(params, total_lifetimes, eom_range, eom_steps, σ_modulation_time
     rng = np.random.default_rng(seed=0)
 
     for step in range(eom_steps):
+        base = params.Ω * (
+            eom_range[0] + (eom_range[1] - eom_range[0]) * step / eom_steps
+        )
         current_params = copy.deepcopy(params)
         current_params.drive_override = (
-            np.array(
-                [
-                    params.Ω
-                    * (eom_range[0] + (eom_range[1] - eom_range[0]) * step / eom_steps)
-                ]
-            ),
-            np.array([1.0]),
+            base + params.Ω * np.arange(num_freq),
+            np.ones(num_freq),
         )
 
         off_time = rng.normal(
@@ -69,6 +125,8 @@ def process_shots(solutions, noise_amplitude, params):
         signals.append((t, signal))
 
     noise_amplitude *= 2 * 2 * np.pi / params.η
+
+    aggregate = None
     for t, signal in signals:
         signal += rng.normal(scale=noise_amplitude, size=len(signal))
         window = (0, t[-1])
@@ -76,51 +134,55 @@ def process_shots(solutions, noise_amplitude, params):
         freq, fft = fourier_transform(
             t,
             signal,
-            low_cutoff=0.5 * params.Ω,
-            high_cutoff=params.Ω * 2.5,
+            low_cutoff=0.1 * params.Ω,
+            high_cutoff=params.Ω * 5,
             window=window,
         )
 
         power = np.abs(fft) ** 2
-        power = power / power.max()
-        if average_power_spectrum is None:
-            average_power_spectrum = power
 
+        # ugly hack because shape is hard to predict
+        if aggregate is None:
+            aggregate = WelfordAggregator(power)
         else:
-            average_power_spectrum += power
+            aggregate.update(power)
 
-    power = average_power_spectrum / len(solutions)
-    power -= np.median(power)
-    power /= power.max()
-
-    return (freq, power)
+    max_power = np.max(aggregate.mean)
+    return (freq, aggregate.mean / max_power, aggregate.ensemble_std / max_power)
 
 
 def plot_power_spectrum(
-    ax_spectrum, freq, average_power_spectrum, params, annotate=True
+    ax_spectrum, freq, average_power_spectrum, σ_power_spectrum, params, annotate=True
 ):
     # ax_spectrum.plot(freq, average_power_spectrum)
     runtime = RuntimeParams(params)
 
     ringdown_params = RingdownParams(
         fω_shift=params.measurement_detuning,
-        mode_window=(3, 3),
+        mode_window=(4, 4),
         fΩ_guess=params.Ω,
         fδ_guess=params.Ω * params.δ,
         η_guess=0.5,
-        absolute_low_cutoff=8,
+        absolute_low_cutoff=0.1 * params.Ω,
     )
 
     peak_info = find_peaks(
-        freq, average_power_spectrum, ringdown_params, prominence=0.1 / 2
+        freq, average_power_spectrum, ringdown_params, prominence=0.1, height=0.5
     )
-    peak_info, lm_result = refine_peaks(peak_info, ringdown_params, height_cutoff=0.05)
+
+    peak_info, lm_result = refine_peaks(
+        peak_info, ringdown_params, height_cutoff=0.05, σ=σ_power_spectrum
+    )
+    print(lm_result.fit_report())
     peak_info.power = average_power_spectrum
     plot_spectrum_and_peak_info(
         ax_spectrum, peak_info, ringdown_params, annotate=annotate
     )
     if lm_result is not None:
-        ax_spectrum.plot(freq, lm_result.best_fit, color="red")
+        fine_freq = np.linspace(freq.min(), freq.max(), 5000)
+        fine_fit = lm_result.eval(ω=fine_freq)
+        ax_spectrum.plot(fine_freq, fine_fit, color="red")
+        ax_spectrum.set_ylim(-0.1, max(1, fine_fit.max() * 1.1))
 
     for i, peak_freq in enumerate(runtime.Ωs):
         pos = np.abs(
@@ -149,7 +211,7 @@ def plot_power_spectrum(
 
 
 def generate_data(
-    g_0=0.3,
+    g_0=0.5,
     η_factor=5,
     noise_amplitude=0.3,
     laser_detuning=0,
@@ -160,6 +222,7 @@ def generate_data(
     excitation_lifetimes=2,
     measurement_lifetimes=4,
     σ_modulation_time=0.01,
+    num_freq=3,
 ):
     η = 0.2
     Ω = 13
@@ -171,7 +234,7 @@ def generate_data(
         δ=1 / 4,
         ω_c=0.1,
         g_0=g_0,
-        laser_detuning=13 * (-1 - 1 / 4) + laser_detuning,
+        laser_detuning=laser_detuning,  # 13 * (-1 - 1 / 4) + laser_detuning,
         N=N,
         N_couplings=N,
         measurement_detuning=0,
@@ -193,27 +256,34 @@ def generate_data(
         eom_ranges,
         eom_steps,
         σ_modulation_time,
+        num_freq,
     )
 
     (sol_on_res) = make_shots(
         params,
         excitation_lifetimes + measurement_lifetimes,
-        ((1 + params.δ), (1 + params.δ)),
+        ((1 - params.δ), (1 - params.δ)),
         1,
         0,
+        num_freq,
     )
 
     (sol_on_res_bath) = make_shots(
         params,
         excitation_lifetimes + measurement_lifetimes,
-        ((1), (1)),
+        ((1 - params.δ * 1.1), (1 - params.δ * 1.1)),
         1,
         0,
+        num_freq,
     )
 
-    freq, average_power_spectrum = process_shots(solutions, noise_amplitude, params)
-    _, spectrum_on_resonance = process_shots(sol_on_res, noise_amplitude, params)
-    _, spectrum_on_resonance_bath = process_shots(
+    freq, average_power_spectrum, σ_power_spectrum = process_shots(
+        solutions, noise_amplitude, params
+    )
+    _, spectrum_on_resonance, σ_power_spectrum_on_resonance = process_shots(
+        sol_on_res, noise_amplitude, params
+    )
+    _, spectrum_on_resonance_bath, σ_power_spectrum_on_resonance_bath = process_shots(
         sol_on_res_bath, noise_amplitude, params
     )
 
@@ -225,13 +295,28 @@ def generate_data(
 
     Ω/2π = {params.Ω}MHz, η/2π = {params.η}MHz, g_0 = {params.g_0}Ω, N = {params.N}
     noise amplitude = {noise_amplitude} * 2/η, η_A = {η_factor} x η, EOM stepped from {eom_ranges[0]:.2f}Ω to {eom_ranges[1]:.2f}Ω in {eom_steps} steps
+    total time = {(excitation_lifetimes + measurement_lifetimes) * eom_steps} / η
     """)
     ax_multi, ax_single, ax_single_bath = fig.subplot_mosaic("AA\nBC").values()
 
-    plot_power_spectrum(ax_multi, freq, average_power_spectrum, params)
-    plot_power_spectrum(ax_single, freq, spectrum_on_resonance, params, annotate=False)
     plot_power_spectrum(
-        ax_single_bath, freq, spectrum_on_resonance_bath, params, annotate=False
+        ax_multi, freq, average_power_spectrum, σ_power_spectrum, params
+    )
+    plot_power_spectrum(
+        ax_single,
+        freq,
+        spectrum_on_resonance,
+        σ_power_spectrum_on_resonance,
+        params,
+        annotate=False,
+    )
+    plot_power_spectrum(
+        ax_single_bath,
+        freq,
+        spectrum_on_resonance_bath,
+        σ_power_spectrum_on_resonance_bath,
+        params,
+        annotate=False,
     )
 
     runtime = RuntimeParams(params)
@@ -249,9 +334,9 @@ def generate_data(
         ax_ticks.plot(freq, np.zeros_like(freq), alpha=0)
         ax_ticks.set_xlim(ax.get_xlim())
 
-    ax_multi.set_title("Averaged Power Spectrum (sans noise offset)")
-    ax_single.set_title("Single-shot, EOM on A site")
-    ax_single_bath.set_title("Single-shot, EOM on bath mode")
+    ax_multi.set_title("Averaged Power Spectrum")
+    ax_single.set_title("Single-shot, No detuning")
+    ax_single_bath.set_title("Single-shot, EOM 10% detuned")
 
     # ax_spectrum.set_yscale(yscale)
 
@@ -262,15 +347,16 @@ def generate_data(
 # %% save
 if __name__ == "__main__":
     fig = generate_data(
-        g_0=0.5,
+        g_0=0.6,
         η_factor=5,
-        noise_amplitude=2e-4,
-        N=2,
-        eom_ranges=(1.1, 1.35),
+        noise_amplitude=8e-3,
+        N=4,
+        eom_ranges=(0.7, 0.9),
         eom_steps=100,
         small_loop_detuning=0,
         laser_detuning=0,
-        excitation_lifetimes=2,
-        measurement_lifetimes=30,
+        excitation_lifetimes=1,
+        measurement_lifetimes=4,
         σ_modulation_time=0.2,
+        num_freq=4,
     )

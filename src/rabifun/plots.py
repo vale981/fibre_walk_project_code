@@ -251,7 +251,7 @@ def plot_spectrum_and_peak_info(
 
             t = ax.text(
                 freq,
-                lorentz[0],
+                ax.get_ylim()[1] * 0.9,
                 rf"{i} (${roundfreq}\pm {rounderr}$)",
                 fontsize=20,
             )

@@ -52,6 +52,14 @@ def lorentzian(ω, A, ω0, γ):
     return A * (γ / 2) ** 2 * (1 / ((ω - ω0) ** 2 + (γ / 2) ** 2))
 
 
+def one_over_freq_noise(ω, A, γ):
+    """A lorentzian with center frequency 0.
+    See :any:`lorentzian` for the parameters.
+    """
+
+    return lorentzian(ω, A, 0, γ)
+
+
 def complex_lorentzian(ω, A, ω0, γ):
     """A Lorentzian function with amplitude ``A``, center frequency
     ``ω0``, and decay rate ``γ`` and offset ``offset``.
@@ -149,6 +157,7 @@ def find_peaks(
     power_spectrum: np.ndarray,
     params: RingdownParams,
     prominence: float = 0.005,
+    height: float = 0.1,
 ) -> RingdownPeakData:
     """Determine the peaks of the power spectrum of the
     ringdown data.
@@ -158,16 +167,24 @@ def find_peaks(
     :param params: The ringdown parameters, see :any:`RingdownParams`.
     :param prominence: The prominence (vertical distance of peak from
         surrounding valleys) of the peaks.
+    :param height: The minimum height of the peaks.
+
     """
 
     freq_step = freq[1] - freq[0]
 
     distance = params.fδ_guess / 2 / freq_step
+    if distance < 1:
+        raise ValueError("Insufficient frequency resolution.")
+
+    normalized = power_spectrum - np.median(power_spectrum)
+    normalized /= normalized.max()
     peaks, peak_info = scipy.signal.find_peaks(
-        power_spectrum / power_spectrum.max(),
+        normalized,
         distance=distance,
-        wlen=distance // 4,
+        wlen=distance,
         prominence=prominence,
+        height=height,
     )
 
     peak_freqs = freq[peaks]
@@ -201,7 +218,7 @@ def filter_peaks(
             i in to_be_deleted
             or Δω0 > uncertainty_threshold * params.fΩ_guess
             or A < height_cutoff
-            or A > 1
+            or A > 10
             or Δγ > uncertainty_threshold * params.fΩ_guess
         ):
             np.delete(peaks.peaks, i)
@@ -226,6 +243,7 @@ def refine_peaks(
     params: RingdownParams,
     uncertainty_threshold: float = 0.2,
     height_cutoff: float = 0.1,
+    σ: np.ndarray | None = None,
 ):
     """
     Refine the peak positions and frequencies by fitting Lorentzians.
@@ -242,98 +260,21 @@ def refine_peaks(
     peak_freqs = peaks.peak_freqs
     power = peaks.power
 
-    new_freqs = []
-    new_widths = []
-    Δfreqs = []
-    Δwidths = []
-    lorentz_params = []
-
-    window = params.η_guess * 1
-    deleted_peaks = []
-
-    for i, peak_freq in enumerate(peak_freqs):
-        mask = (freqs > peak_freq - window) & (freqs < peak_freq + window)
-        windowed_freqs = freqs[mask]
-        windowed_power = power[mask]
-
-        scale_freqs = windowed_freqs[-1] - windowed_freqs[0]
-        root_freq = windowed_freqs[0]
-        scale_power = windowed_power.max()
-
-        windowed_freqs -= root_freq
-        windowed_freqs /= scale_freqs
-
-        windowed_power /= scale_power
-
-        p0 = [
-            peaks.power[peaks.peaks[i]] / scale_power,
-            (peak_freq - root_freq) / scale_freqs,
-            params.η_guess / scale_freqs,
-        ]
-        bounds = (
-            [0, windowed_freqs[0], 0],
-            [np.inf, windowed_freqs[-1], np.inf],
-        )
-
-        try:
-            scipy_popt, pcov = scipy.optimize.curve_fit(
-                lorentzian,
-                windowed_freqs,
-                windowed_power,
-                p0=p0,
-                bounds=bounds,
-            )
-            perr = np.sqrt(np.diag(pcov))
-
-            if (
-                perr[1] * scale_freqs > uncertainty_threshold * params.fΩ_guess
-                or scipy_popt[0] * scale_power / np.max(power) < height_cutoff
-            ):
-                deleted_peaks.append(i)
-                continue
-
-            scipy_popt[0] = scipy_popt[0] * scale_power
-            scipy_popt[1] = scipy_popt[1] * scale_freqs + root_freq
-            scipy_popt[2] = scipy_popt[2] * scale_freqs
-
-            lorentz_params.append(scipy_popt)
-
-            if perr[1] > uncertainty_threshold * params.fΩ_guess:
-                deleted_peaks.append(i)
-                continue
-
-            new_freqs.append(scipy_popt[1])
-            Δfreqs.append(perr[1])
-
-            new_widths.append(scipy_popt[2])
-            Δwidths.append(perr[2])
-        except:
-            deleted_peaks.append(i)
-
-    peaks.peaks = np.delete(peaks.peaks, deleted_peaks)
-    for key, value in peaks.peak_info.items():
-        if isinstance(value, np.ndarray):
-            peaks.peak_info[key] = np.delete(value, deleted_peaks)
-
-    peaks.peak_freqs = np.array(new_freqs)
-    peaks.Δpeak_freqs = np.array(Δfreqs)
-    peaks.peak_widths = np.array(new_widths)
-    peaks.Δpeak_widths = np.array(Δwidths)
-    peaks.lorentz_params = lorentz_params
-
     total_model = None
     model_params = []
 
-    global_power_scale = 1  # power.max()
-    scaled_power = power / global_power_scale
+    scaled_power = power
 
-    for i, (A, ω0, γ) in enumerate(lorentz_params):
+    if σ is None:
+        σ = np.zeros_like(power)
+
+    for i, (A, ω0) in enumerate(zip(peaks.peak_info["peak_heights"], peak_freqs)):
         model = lmfit.Model(lorentzian, prefix=f"peak_{i}_")
 
         initial_params = model.make_params(
-            A=dict(value=A / global_power_scale, min=0, max=np.inf),
+            A=dict(value=A, min=0, max=np.inf),
             ω0=dict(value=ω0, min=0, max=np.inf),
-            γ=dict(value=γ, min=0, max=np.inf),
+            γ=dict(value=params.η_guess, min=0, max=np.inf),
         )
 
         if total_model is None:
@@ -343,6 +284,17 @@ def refine_peaks(
 
         model_params.append(initial_params)
 
+    model = lmfit.Model(one_over_freq_noise, prefix=f"zero_peak")
+
+    initial_params = model.make_params(
+        A=dict(value=1, min=0, max=np.inf),
+        ω0=dict(value=0, min=0, max=np.inf),
+        γ=dict(value=params.η_guess, min=0, max=np.inf),
+    )
+
+    total_model += model
+    model_params.append(initial_params)
+
     aggregate_params = total_model.make_params()
     for lm_params in model_params:
         aggregate_params.update(lm_params)
@@ -351,7 +303,19 @@ def refine_peaks(
     aggregate_params.update(offset_model.make_params(offset=0, min=0, max=1))
     total_model += offset_model
 
-    lm_result = total_model.fit(scaled_power, params=aggregate_params, ω=freqs)
+    lm_result = total_model.fit(
+        scaled_power,
+        params=aggregate_params,
+        ω=freqs,
+        weights=1 / σ if np.all(σ > 0) else None,
+    )
+
+    peaks.peak_freqs = np.zeros_like(peaks.peak_freqs)
+    peaks.Δpeak_freqs = np.zeros_like(peaks.peak_freqs)
+    peaks.peak_widths = np.zeros_like(peaks.peak_freqs)
+    peaks.Δpeak_widths = np.zeros_like(peaks.peak_freqs)
+
+    peaks.lorentz_params = [None] * len(peaks.peak_freqs)
 
     for i in reversed(range(len(peaks.peak_freqs))):
         peak_prefix = f"peak_{i}_"
@@ -376,7 +340,12 @@ def refine_peaks(
 
         peaks.lorentz_params[i] = A, ω0, γ
 
+    before_filter = len(peaks.peaks)
     peaks = filter_peaks(peaks, params, uncertainty_threshold, height_cutoff)
+
+    if len(peaks.peaks) < before_filter:
+        return refine_peaks(peaks, params, uncertainty_threshold, height_cutoff)
+
     return peaks, lm_result
 
 

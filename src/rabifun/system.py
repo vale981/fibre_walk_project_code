@@ -177,10 +177,10 @@ class RuntimeParams:
             a_shift = 0
             self.detunings *= 0
 
-            norm = np.sqrt(np.sum(self.g**2))
+        norm = np.sqrt(np.sum(abs(self.g) ** 2))
 
-            if norm > 0:
-                self.g *= params.g_0
+        if norm > 0:
+            self.g *= params.g_0 / norm
 
         self.g *= 2 * np.pi
         self.Ωs = Ωs
