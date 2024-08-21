@@ -213,53 +213,43 @@ def plot_rwa_vs_real_amplitudes(ax, solution_no_rwa, solution_rwa, params, **kwa
     return no_rwa_lines, rwa_lines
 
 
-def plot_spectrum_and_peak_info(
-    ax, peaks: RingdownPeakData, params: RingdownParams, annotate=False
-):
+def plot_spectrum_and_peak_info(ax, peaks: RingdownPeakData, annotate=False):
     """Plot the fft spectrum with peaks.
 
     :param ax: The axis to plot on.
     :param peaks: The peak data.
-    :param params: The ringdown parameters.
     :param annotate: Whether to annotate the peaks.
     """
 
     ax.clear()
     ax.plot(
         peaks.freq,
-        peaks.power,
+        peaks.power - peaks.noise_floor,
         label="FFT Power",
         color="C0",
-        linewidth=0.5,
+        linewidth=0.1,
         marker="o",
-        markersize=2,
+        markersize=3,
     )
 
+    fine_freq = np.linspace(peaks.freq[0], peaks.freq[-1], 1000)
     if annotate:
         for i, (freq, Δfreq, lorentz) in enumerate(
             zip(peaks.peak_freqs, peaks.Δpeak_freqs, peaks.lorentz_params)
         ):
-            # ax.plot(
-            #     freq,
-            #     max(lorentz[0], 1),
-            #     "x",
-            #     label="Peaks",
-            #     color="C2",
-            # )
-
             roundfreq, rounderr = scientific_round(freq, Δfreq)
 
             t = ax.text(
                 freq,
-                ax.get_ylim()[1] * 0.9,
+                lorentz[0] * 1.1,
                 rf"{i} (${roundfreq}\pm {rounderr}$)",
                 fontsize=20,
             )
-            t.set_bbox(dict(facecolor="white", alpha=1, edgecolor="white"))
+            t.set_bbox(dict(facecolor="white", alpha=0.8, edgecolor="white"))
 
             ax.plot(
-                peaks.freq,
-                lorentzian(peaks.freq, *lorentz),
+                fine_freq,
+                lorentzian(fine_freq, *lorentz),
                 "--",
                 color="C2",
                 alpha=0.5,
@@ -268,12 +258,43 @@ def plot_spectrum_and_peak_info(
     ax.set_title("FFT Spectrum")
     ax.set_xlabel("ω [linear]")
     ax.set_ylabel("Power")
-    ax.axvline(
-        params.fω_shift,
-        color="gray",
-        linestyle="--",
-        zorder=-10,
-        label="Frequency Shift",
-    )
     ax.set_xlim(peaks.freq[0], peaks.freq[-1])
     ax.legend()
+
+
+def annotate_ringodown_mode_positions(params: Params, ax):
+    """
+    Add y ticks and vertical lines indicating the theoretical
+    frequencies and widths of the modes in that can appear in the
+    ringdown spectrum.
+
+    :param params: The system parameters.
+    :param ax: The pyplot axis to annotate.
+    """
+
+    runtime = RuntimeParams(params)
+    ax_ticks = ax.twiny()
+    ax_ticks.sharey(ax)
+    ax_ticks.set_xticks(runtime.ringdown_frequencies)
+    ax_ticks.set_xticklabels([mode_name(i, params.N) for i in range(2 * params.N + 2)])
+    ax_ticks.set_xlim(ax.get_xlim())
+
+    for pos, peak_freq in zip(runtime.ringdown_frequencies, runtime.Ωs):
+        ax.axvline(
+            pos,
+            color="black",
+            alpha=0.5,
+            linestyle="--",
+            zorder=-100,
+        )
+
+        ax.axvspan(
+            pos - peak_freq.imag / (2 * np.pi),
+            pos + peak_freq.imag / (2 * np.pi),
+            color="black",
+            alpha=0.05,
+            linestyle="--",
+            zorder=-100,
+        )
+
+    return ax

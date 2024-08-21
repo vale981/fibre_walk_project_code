@@ -46,3 +46,59 @@ def smoothe_signal(
 
     window = int(window_size / time_step)
     return uniform_filter1d(signal, window)
+
+
+class WelfordAggregator:
+    """A class to aggregate values using the Welford algorithm.
+
+    The Welford algorithm is an online algorithm to calculate the mean
+    and variance of a series of values.
+
+    The aggregator keeps track of the number of samples the mean and
+    the variance.  Aggregation of identical values is prevented by
+    checking the sample index.  Tracking can be disabled by setting
+    the initial index to ``None``.
+
+    See also the `Wikipedia article
+    <https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm>`_.
+
+    :param first_value: The first value to aggregate.
+    """
+
+    __slots__ = ["n", "mean", "_m_2"]
+
+    def __init__(self, first_value: np.ndarray):
+        self.n: int = 1
+        self.mean: np.ndarray = first_value
+        self._m_2 = np.zeros_like(first_value)
+
+    def update(self, new_value: np.ndarray):
+        """Updates the aggregator with a new value."""
+
+        self.n += 1
+        delta = new_value - self.mean
+        self.mean += delta / self.n
+        delta2 = new_value - self.mean
+        self._m_2 += np.abs(delta) * np.abs(delta2)
+
+    @property
+    def sample_variance(self) -> np.ndarray:
+        """
+        The empirical sample variance.  (:math:`\sqrt{N-1}`
+        normalization.)
+        """
+
+        if self.n == 1:
+            return np.zeros_like(self.mean)
+
+        return self._m_2 / (self.n - 1)
+
+    @property
+    def ensemble_variance(self) -> np.ndarray:
+        """The ensemble variance."""
+        return self.sample_variance / self.n
+
+    @property
+    def ensemble_std(self) -> np.ndarray:
+        """The ensemble standard deviation."""
+        return np.sqrt(self.ensemble_variance)

@@ -121,7 +121,7 @@ class RingdownPeakData:
     """The fft frequency array."""
 
     power: np.ndarray
-    """The power spectrum of the fft."""
+    """The normalized power spectrum of the fft."""
 
     peaks: np.ndarray
     """The indices of the peaks."""
@@ -131,6 +131,9 @@ class RingdownPeakData:
 
     peak_info: dict
     """The information from :any:`scipy.signal.find_peaks`."""
+
+    σ_power: np.ndarray | None = None
+    """The standard deviation of the power spectrum."""
 
     peak_widths: np.ndarray | None = None
     """
@@ -146,10 +149,23 @@ class RingdownPeakData:
     lorentz_params: list | None = None
     """The lorentzian fit params to be fed into :any:`lorentzian`."""
 
+    lm_result: lmfit.model.ModelResult | None = None
+    """The fit result from :any:`lmfit`."""
+
+    noise_floor: float = 0
+    """The noise floor of the spectrum."""
+
     @property
     def is_refined(self) -> bool:
         """Whether the peaks have been refined with :any:`refine_peaks`."""
-        return self.peak_widths is not None
+        return self.lm_result is not None
+
+    def __post_init__(self):
+        norm = np.max(self.power)
+
+        self.power /= norm
+        if self.σ_power is not None:
+            self.σ_power /= norm
 
 
 def find_peaks(
@@ -158,6 +174,7 @@ def find_peaks(
     params: RingdownParams,
     prominence: float = 0.005,
     height: float = 0.1,
+    σ_power: np.ndarray | None = None,
 ) -> RingdownPeakData:
     """Determine the peaks of the power spectrum of the
     ringdown data.
@@ -168,7 +185,7 @@ def find_peaks(
     :param prominence: The prominence (vertical distance of peak from
         surrounding valleys) of the peaks.
     :param height: The minimum height of the peaks.
-
+    :param σ_power: The standard deviation of the power spectrum.
     """
 
     freq_step = freq[1] - freq[0]
@@ -195,6 +212,7 @@ def find_peaks(
         peak_freqs=peak_freqs,
         peak_info=peak_info,
         power=power_spectrum,
+        σ_power=σ_power,
     )
 
 
@@ -210,6 +228,11 @@ def filter_peaks(
     to_be_deleted: list = [],
 ):
     deleted_peaks = []
+    if not peaks.is_refined:
+        return peaks
+
+    peaks = dataclasses.replace(peaks)
+
     for i in reversed(range(len(peaks.peak_freqs))):
         A, ω0, γ = peaks.lorentz_params[i]
         Δω0, Δγ = peaks.Δpeak_freqs[i], peaks.Δpeak_widths[i]
@@ -221,11 +244,11 @@ def filter_peaks(
             or A > 5
             or Δγ > uncertainty_threshold * params.fΩ_guess
         ):
-            np.delete(peaks.peaks, i)
-            np.delete(peaks.peak_freqs, i)
-            np.delete(peaks.Δpeak_freqs, i)
-            np.delete(peaks.peak_widths, i)
-            np.delete(peaks.Δpeak_widths, i)
+            peaks.peaks = np.delete(peaks.peaks, i)
+            peaks.peak_freqs = np.delete(peaks.peak_freqs, i)
+            peaks.Δpeak_freqs = np.delete(peaks.Δpeak_freqs, i)
+            peaks.peak_widths = np.delete(peaks.peak_widths, i)
+            peaks.Δpeak_widths = np.delete(peaks.Δpeak_widths, i)
 
             del peaks.lorentz_params[i]
             deleted_peaks.append(i)
@@ -243,10 +266,14 @@ def refine_peaks(
     params: RingdownParams,
     uncertainty_threshold: float = 0.2,
     height_cutoff: float = 0.1,
-    σ: np.ndarray | None = None,
-):
+) -> RingdownPeakData:
     """
-    Refine the peak positions and frequencies by fitting Lorentzians.
+    Refine the peak positions and frequencies by fitting a sum of
+    Lorentzians.  The peaks are filtered according to the
+    ``height_cutoff``, ``uncertainty_threshold`` and other criteria
+    and the fit repeated until nothing changes.  The results are
+    stored in a copy of ``peaks``, among them the last successful
+    :any:`lmfit` fit result.
 
     :param peaks: The peak data.
     :param params: The ringdown parameters.
@@ -256,7 +283,7 @@ def refine_peaks(
     """
 
     if len(peaks.peaks) == 0:
-        return peaks, None
+        return peaks
 
     peaks = dataclasses.replace(peaks)
     freqs = peaks.freq
@@ -268,8 +295,7 @@ def refine_peaks(
 
     scaled_power = power
 
-    if σ is None:
-        σ = np.zeros_like(power)
+    σ = np.zeros_like(power) if peaks.σ_power is None else peaks.σ_power
 
     for i, (A, ω0) in enumerate(zip(peaks.peak_info["peak_heights"], peak_freqs)):
         model = lmfit.Model(lorentzian, prefix=f"peak_{i}_")
@@ -319,7 +345,7 @@ def refine_peaks(
 
     peaks.lorentz_params = [None] * len(peaks.peak_freqs)
 
-    for i in reversed(range(len(peaks.peak_freqs))):
+    for i in range(len(peaks.peak_freqs)):
         peak_prefix = f"peak_{i}_"
 
         A, ω0, γ = (
@@ -342,13 +368,16 @@ def refine_peaks(
 
         peaks.lorentz_params[i] = A, ω0, γ
 
+    peaks.lm_result = lm_result
+    peaks.noise_floor = lm_result.best_values["offset"]
+
     before_filter = len(peaks.peaks)
     peaks = filter_peaks(peaks, params, uncertainty_threshold, height_cutoff)
 
     if len(peaks.peaks) < before_filter:
         return refine_peaks(peaks, params, uncertainty_threshold, height_cutoff)
 
-    return peaks, lm_result
+    return peaks
 
 
 class StepType(Enum):

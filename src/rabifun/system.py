@@ -125,7 +125,7 @@ class Params:
         """
         return n / self.Ω
 
-    def lifetimes(self, n: float):
+    def lifetimes(self, n: float) -> float:
         """
         Returns the number of lifetimes of the system that correspond to
         `n` cycles.
