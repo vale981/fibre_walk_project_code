@@ -91,14 +91,16 @@ def get_jj_info(type):
     ).stdout.decode("utf-8")
 
 
-def write_meta(path, **kwargs):
+def write_meta(path, include_kwags=True, **kwargs):
     """Write metatdata for result that has been written to a file
     under ``path``.
 
     The metadata includes the change_id, commit_id and the description
     of the current ``jj`` state, and the source file that generated
-    the result. Additional metadata can be provided through the
-    keyword arguments.
+    the result.  Additional metadata can be provided through the
+    keyword arguments.  If ``include_kwargs`` is set to True, the
+    keyword arguments will of the calling function be included in the
+    metadata.
     """
     change_id = get_jj_info("change_id")
     commit_id = get_jj_info("commit_id")
@@ -124,6 +126,7 @@ def write_meta(path, **kwargs):
             dict(
                 source=filename,
                 function=function,
+                function_args=get_kwargs() if include_kwags else {},
                 change_id=change_id,
                 commit_id=commit_id,
                 description=description.strip(),
@@ -131,20 +134,36 @@ def write_meta(path, **kwargs):
             )
             | kwargs,
             f,
+            allow_unicode=True,
         )
 
     print(f"Metadata written to {outpath}")
 
 
+def get_kwargs():
+    frame = inspect.currentframe().f_back.f_back.f_back.f_back
+    keys, _, _, values = inspect.getargvalues(frame)
+    kwargs = {}
+    for key in keys:
+        if key != "self":
+            kwargs[key] = values[key]
+    return kwargs
+
+
 @noop_if_interactive
-def save_figure(fig, name, extra_meta=None, *args, **kwargs):
+def save_figure(fig, name, extra_meta=None, include_kwags=True, *args, **kwargs):
     import pickle
 
     dir = pathlib.Path(f"./figs/")
     dir.mkdir(exist_ok=True)
     fig.tight_layout()
 
-    write_meta(f"./figs/{name}.pdf", name=name, extra_meta=extra_meta)
+    write_meta(
+        f"./figs/{name}.pdf",
+        name=name,
+        include_kwags=include_kwags,
+        extra_meta=extra_meta,
+    )
 
     plt.savefig(f"./figs/{name}.pdf", *args, **kwargs)
     plt.savefig(f"./figs/{name}.png", *args, dpi=600, **kwargs)
@@ -157,7 +176,7 @@ def save_figure(fig, name, extra_meta=None, *args, **kwargs):
 
 
 @noop_if_interactive
-def quick_save_pickle(obj, name, **kwargs):
+def quick_save_pickle(obj, name, include_kwags=False, **kwargs):
     """Quickly save an object to a pickle file with metadata."""
     import pickle
 
@@ -167,7 +186,7 @@ def quick_save_pickle(obj, name, **kwargs):
     with open(path, "wb") as f:
         pickle.dump(obj, f)
 
-    write_meta(path, **kwargs)
+    write_meta(path, include_kwags=include_kwags, **kwargs)
 
 
 def quick_load_pickle(name):
