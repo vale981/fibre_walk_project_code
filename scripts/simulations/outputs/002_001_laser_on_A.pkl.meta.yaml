@@ -1,0 +1,7 @@
+change_id: nnyqrroulxpmtpxksrmpyoozouxtluur
+commit_id: f9eaf01d1e1c5b0925d718c69a7f84e0e14ce875
+description: 'RESULT: calibration simulation'
+function: generate_data
+function_args: {}
+refers_to: outputs/002_001_laser_on_A.pkl
+source: scripts/simulations/002_calibration_demonstration.py

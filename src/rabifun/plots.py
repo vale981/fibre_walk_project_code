@@ -219,6 +219,8 @@ def plot_spectrum_and_peak_info(ax, peaks: RingdownPeakData, annotate=False):
     :param ax: The axis to plot on.
     :param peaks: The peak data.
     :param annotate: Whether to annotate the peaks.
+
+        If ``true`` each peak will be annotated with it's estimated frequency.
     """
 
     ax.clear()
@@ -243,7 +245,8 @@ def plot_spectrum_and_peak_info(ax, peaks: RingdownPeakData, annotate=False):
                 freq,
                 lorentz[0] * 1.1,
                 rf"{i} (${roundfreq}\pm {rounderr}$)",
-                fontsize=20,
+                fontsize=10,
+                clip_on=True,
             )
             t.set_bbox(dict(facecolor="white", alpha=0.8, edgecolor="white"))
 

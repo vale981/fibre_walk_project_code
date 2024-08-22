@@ -1,0 +1,7 @@
+change_id: nnyqrroulxpmtpxksrmpyoozouxtluur
+commit_id: 97126fb016e5811d4ba2682ca4371ae561cb3e5b
+description: 'RESULT: calibration simulation'
+function: generate_data
+function_args: {}
+refers_to: outputs/002_003_laser_on_bath_no_random.pkl
+source: scripts/simulations/002_calibration_demonstration.py

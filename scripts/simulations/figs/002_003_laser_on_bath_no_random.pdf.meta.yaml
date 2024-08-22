@@ -1,0 +1,27 @@
+change_id: nnyqrroulxpmtpxksrmpyoozouxtluur
+commit_id: ec06ea8db6bf543984fa0cf3b39843c05044e654
+description: 'RESULT: calibration simulation'
+extra_meta: null
+function: generate_data
+function_args:
+  N: 5
+  eom_ranges: !!python/tuple
+  - 1.2
+  - 1.3
+  eom_steps: 100
+  excitation_lifetimes: 2
+  extra_title: Laser on Bath Mode, No randomized off-time.
+  g_0: 0.3
+  laser_detuning: 0
+  laser_on_mode: -1
+  measurement_lifetimes: 4
+  noise_amplitude: 0.0
+  num_freq: 1
+  randomize_off_time: false
+  save: 003_laser_on_bath_no_random
+  Ω: 13
+  η: 0.2
+  η_factor: 5
+name: 002_003_laser_on_bath_no_random
+refers_to: ./figs/002_003_laser_on_bath_no_random.pdf
+source: scripts/simulations/002_calibration_demonstration.py
