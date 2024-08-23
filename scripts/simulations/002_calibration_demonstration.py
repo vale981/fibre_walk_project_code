@@ -323,7 +323,7 @@ def generate_data(
         0.95,
         f"""$Ω/2π = {params.Ω}$MHz
 $η/2π = {params.η}MHz$
-$g_0 = {g_0}Ω$
+$g_0 = {g_0}Ω = {g_0 * params.Ω}MHz = {g_0 * 2} V_\\pi$
 $N = {params.N}$
 noise = ${noise_amplitude * 2}$
 $η_A = {η_factor}η$
@@ -358,7 +358,7 @@ randomize off time = {'yes' if randomize_off_time else 'no'} """,
 # %% save
 if __name__ == "__main__":
     generate_data(
-        g_0=0.4,
+        g_0=0.015,
         η_factor=5,
         noise_amplitude=0.3,
         N=5,
@@ -374,8 +374,8 @@ if __name__ == "__main__":
         save="001_laser_on_A",
     )
 
-    fig = generate_data(
-        g_0=0.5,
+    generate_data(
+        g_0=0.015,
         η_factor=5,
         noise_amplitude=0.3,
         N=5,
@@ -391,8 +391,8 @@ if __name__ == "__main__":
         save="002_laser_on_bath",
     )
 
-    fig = generate_data(
-        g_0=0.3,
+    generate_data(
+        g_0=0.015,
         η_factor=5,
         noise_amplitude=0.0,
         N=5,
@@ -408,8 +408,8 @@ if __name__ == "__main__":
         save="003_laser_on_bath_no_random",
     )
 
-    fig = generate_data(
-        g_0=0.3,
+    generate_data(
+        g_0=0.015,
         η_factor=5,
         noise_amplitude=0.0,
         N=5,

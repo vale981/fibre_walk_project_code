@@ -1,6 +1,6 @@
-change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
-commit_id: 57a4f5fabb808285304c07bedf6abb398558adc6
-description: 'FIX: report correct coupling strenght'
+change_id: wnxzlkutlyvyooktnlrnmzwozwyqstlu
+commit_id: e54878cd9c84a5ff5b251a717e447f7db4d496d8
+description: overhaul the real time simulations
 extra_meta: null
 function: generate_data
 function_args:
@@ -11,7 +11,7 @@ function_args:
   eom_steps: 200
   excitation_lifetimes: 2
   extra_title: Laser on A site
-  g_0: 0.4
+  g_0: 0.015
   laser_detuning: 0
   laser_on_mode: 0
   measurement_lifetimes: 5

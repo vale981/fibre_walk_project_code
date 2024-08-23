@@ -1,6 +1,6 @@
-change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
-commit_id: 49ffdb3a65318311e113d95048a41b344506c81a
-description: 'FIX: report correct coupling strenght'
+change_id: wnxzlkutlyvyooktnlrnmzwozwyqstlu
+commit_id: 7526e08d9a0f0808bca759ac6dd881bc4a0d4952
+description: overhaul the real time simulations
 function: generate_data
 function_args: {}
 refers_to: outputs/002_001_laser_on_A.pkl

@@ -1,6 +1,6 @@
-change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
-commit_id: a7a5fbceb7859c385b54d67ffe0fe59b4ec75afb
-description: 'FIX: report correct coupling strenght'
+change_id: wnxzlkutlyvyooktnlrnmzwozwyqstlu
+commit_id: 9897bbc4399c04adab687494f64c527495db33ac
+description: overhaul the real time simulations
 function: generate_data
 function_args: {}
 refers_to: outputs/002_003_laser_on_bath_no_random.pkl

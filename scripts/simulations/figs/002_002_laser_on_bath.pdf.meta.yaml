@@ -1,6 +1,6 @@
-change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
-commit_id: 889589b64950c7e1f0236b57722940213cddca79
-description: 'FIX: report correct coupling strenght'
+change_id: wnxzlkutlyvyooktnlrnmzwozwyqstlu
+commit_id: 15547da097b9fbce62849e5763135032c652db07
+description: overhaul the real time simulations
 extra_meta: null
 function: generate_data
 function_args:
@@ -11,7 +11,7 @@ function_args:
   eom_steps: 200
   excitation_lifetimes: 2
   extra_title: Laser on Bath Mode
-  g_0: 0.5
+  g_0: 0.015
   laser_detuning: 0
   laser_on_mode: -1
   measurement_lifetimes: 4
