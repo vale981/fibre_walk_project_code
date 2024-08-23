@@ -323,7 +323,7 @@ def generate_data(
         0.95,
         f"""$Ω/2π = {params.Ω}$MHz
 $η/2π = {params.η}MHz$
-$g_0 = {params.g_0}Ω$
+$g_0 = {g_0}Ω$
 $N = {params.N}$
 noise = ${noise_amplitude * 2}$
 $η_A = {η_factor}η$
@@ -358,16 +358,16 @@ randomize off time = {'yes' if randomize_off_time else 'no'} """,
 # %% save
 if __name__ == "__main__":
     generate_data(
-        g_0=0.5,
+        g_0=0.4,
         η_factor=5,
         noise_amplitude=0.3,
         N=5,
         eom_ranges=(0.7, 0.9),
-        eom_steps=100,
+        eom_steps=200,
         laser_detuning=0,
         laser_on_mode=0,
         excitation_lifetimes=2,
-        measurement_lifetimes=4,
+        measurement_lifetimes=5,
         num_freq=4,
         randomize_off_time=True,
         extra_title="Laser on A site",

@@ -1,6 +1,6 @@
-change_id: tlzzzytuuqokormsvoololwxlzpkmkux
-commit_id: 7938a2cfc4c772c336db5d116636c3266caf3341
-description: 'RESULT: regenerate calibration plots'
+change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
+commit_id: 57a4f5fabb808285304c07bedf6abb398558adc6
+description: 'FIX: report correct coupling strenght'
 extra_meta: null
 function: generate_data
 function_args:
@@ -8,13 +8,13 @@ function_args:
   eom_ranges: !!python/tuple
   - 0.7
   - 0.9
-  eom_steps: 100
+  eom_steps: 200
   excitation_lifetimes: 2
   extra_title: Laser on A site
-  g_0: 0.5
+  g_0: 0.4
   laser_detuning: 0
   laser_on_mode: 0
-  measurement_lifetimes: 4
+  measurement_lifetimes: 5
   noise_amplitude: 0.3
   num_freq: 4
   randomize_off_time: true

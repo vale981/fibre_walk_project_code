@@ -1,6 +1,6 @@
-change_id: tlzzzytuuqokormsvoololwxlzpkmkux
-commit_id: d72f6bb424a085b60a40a4a78e42d06c10ae715e
-description: 'RESULT: regenerate calibration plots'
+change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
+commit_id: 11c4cee88cf15d400488dc7141ad51e608c76610
+description: 'FIX: report correct coupling strenght'
 extra_meta: null
 function: generate_data
 function_args:

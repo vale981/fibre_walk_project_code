@@ -1,6 +1,6 @@
-change_id: tlzzzytuuqokormsvoololwxlzpkmkux
-commit_id: 10ceb3a3ed155cb5220f5b5ac256268915e0ea1e
-description: 'RESULT: regenerate calibration plots'
+change_id: ztyymystlxykmlytsrsxqsrrusnrlpsn
+commit_id: a7a5fbceb7859c385b54d67ffe0fe59b4ec75afb
+description: 'FIX: report correct coupling strenght'
 function: generate_data
 function_args: {}
 refers_to: outputs/002_003_laser_on_bath_no_random.pkl
