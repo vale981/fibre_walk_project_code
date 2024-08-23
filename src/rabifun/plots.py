@@ -279,7 +279,12 @@ def annotate_ringodown_mode_positions(params: Params, ax):
     ax_ticks = ax.twiny()
     ax_ticks.sharey(ax)
     ax_ticks.set_xticks(runtime.ringdown_frequencies)
-    ax_ticks.set_xticklabels([mode_name(i, params.N) for i in range(2 * params.N + 2)])
+    ax_ticks.set_xticklabels(
+        [
+            f"{mode_name(i, params.N)} = {freq:.2f}"
+            for i, freq in enumerate(runtime.ringdown_frequencies)
+        ]
+    )
     ax_ticks.set_xlim(ax.get_xlim())
 
     for pos, peak_freq in zip(runtime.ringdown_frequencies, runtime.Ωs):
