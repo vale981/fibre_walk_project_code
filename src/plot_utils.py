@@ -86,7 +86,7 @@ def lighten_color(color, amount=0.5):
 
 def get_jj_info(type):
     return subprocess.run(
-        ["jj", "log", "-T", type, "-l", "1", "--no-graph"],
+        ["jj", "log", "-T", type, "-n", "1", "--no-graph"],
         stdout=subprocess.PIPE,
     ).stdout.decode("utf-8")
 
