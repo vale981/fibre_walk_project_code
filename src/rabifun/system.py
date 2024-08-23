@@ -142,7 +142,10 @@ class Params:
 
 
 class RuntimeParams:
-    """Secondary Parameters that are required to run the simulation."""
+    """Secondary Parameters that are required to run the simulation.
+
+    Here, every frequency is an *angular frequency.*
+    """
 
     def __init__(self, params: Params):
         self.params = params
@@ -191,7 +194,7 @@ class RuntimeParams:
         if norm > 0:
             self.g *= params.g_0 / norm
 
-        self.g *= 2 * np.pi
+        self.g *= params.Ω * 2 * np.pi
         self.Ωs = Ωs
 
         self.ε = (
